@@ -297,6 +297,9 @@ async def stats(request: Request) -> Response:
 @app.post("/v1/aegis/_seed")
 async def seed(request: Request) -> JSONResponse:
     """20 synthetic Telemetry Events for an instantly populated dashboard (PRD 11)."""
-    for event in seed_events():
+    events = seed_events()
+    for event in events:
         await record_event(request.app.state.redis, event)
-    return JSONResponse({"seeded": 20})
+    return JSONResponse(
+        {"seeded": len(events), "events": [event.model_dump() for event in events]}
+    )

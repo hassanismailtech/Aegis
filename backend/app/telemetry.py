@@ -22,6 +22,7 @@ from app.schemas import EntityType, TelemetryEvent
 EVENTS_KEY = "aegis:events"  # STREAM, MAXLEN ~ 1000 (PRD 7.2)
 STATS_KEY = "aegis:stats"  # HASH counters (PRD 7.2)
 OVERHEAD_KEY = "aegis:overhead"  # LIST of last 500 overhead_ms values
+LEAKTEST_KEY = "aegis:leaktest"  # JSON result of the last `pytest --report` run
 PUBSUB_CHANNEL = "aegis:live"  # PUBLISH target for the SSE feed
 MAXLEN = 1000
 OVERHEAD_WINDOW = 500
@@ -134,8 +135,21 @@ async def stats(redis: Redis) -> dict[str, Any]:
     pipe = redis.pipeline(transaction=True)
     pipe.hgetall(STATS_KEY)
     pipe.lrange(OVERHEAD_KEY, 0, -1)
-    counters, overhead, *_ = await pipe.execute()
+    pipe.get(LEAKTEST_KEY)
+    counters, overhead, leaktest, *_ = await pipe.execute()
     values = [float(value) for value in overhead]
+    leaks: dict[str, Any] | None = None
+    if leaktest:
+        try:
+            parsed = json.loads(leaktest)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict):
+            leaks = {
+                "leaks": int(parsed.get("leaks", 0)),
+                "planted": int(parsed.get("planted", 0)),
+                "ts": str(parsed.get("ts", "")),
+            }
     return {
         "requests": int(counters.get("requests", 0)),
         "entities_total": int(counters.get("entities_total", 0)),
@@ -147,6 +161,7 @@ async def stats(redis: Redis) -> dict[str, Any]:
         "overhead_ms_p50": percentile(values, 0.50),
         "overhead_ms_p95": percentile(values, 0.95),
         "fee_usd": int(counters.get("fee_micro_usd", 0)) / 1_000_000,
+        "leaks": leaks,
     }
 
 

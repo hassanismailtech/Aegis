@@ -19,6 +19,7 @@ from app import main as aegis_main
 from app.main import app as aegis_app
 from app.telemetry import (
     EVENTS_KEY,
+    LEAKTEST_KEY,
     OVERHEAD_KEY,
     PUBSUB_CHANNEL,
     STATS_KEY,
@@ -159,10 +160,33 @@ async def test_stats_endpoint_shape(client: httpx.AsyncClient, redis_client: Red
     stats = (await client.get("/v1/aegis/stats")).json()
     assert set(stats) == {
         "requests", "entities_total", "entities", "state_loss",
-        "overhead_ms_p50", "overhead_ms_p95", "fee_usd",
+        "overhead_ms_p50", "overhead_ms_p95", "fee_usd", "leaks",
     }
     assert set(stats["entities"]) == {"PERSON", "PHONE", "BVN", "NIN", "ACCOUNT_NO", "EMAIL"}
     assert stats["overhead_ms_p50"] <= stats["overhead_ms_p95"]
+
+
+async def test_stats_surfaces_last_leaktest_report(
+    client: httpx.AsyncClient, redis_client: Redis, pytestconfig: pytest.Config
+) -> None:
+    """PRD 5.6: dashboard leaks come from the last `pytest --report` run."""
+    previous = await redis_client.get(LEAKTEST_KEY)
+    if pytestconfig.getoption("--report") and previous is not None:
+        stats = (await client.get("/v1/aegis/stats")).json()
+        assert stats["leaks"] == json.loads(previous)
+        return
+    report = {"leaks": 0, "planted": 31, "ts": "2026-10-24T09:00:00Z"}
+    await redis_client.set(LEAKTEST_KEY, json.dumps(report))
+    try:
+        stats = (await client.get("/v1/aegis/stats")).json()
+        assert stats["leaks"] == report
+    finally:
+        if pytestconfig.getoption("--report"):
+            return
+        if previous is None:
+            await redis_client.delete(LEAKTEST_KEY)
+        else:
+            await redis_client.set(LEAKTEST_KEY, previous)
 
 
 async def test_seed_endpoint_adds_20_events(
@@ -174,7 +198,11 @@ async def test_seed_endpoint_adds_20_events(
 
     response = await client.post("/v1/aegis/_seed")
     assert response.status_code == 200
-    assert response.json() == {"seeded": 20}
+    body = response.json()
+    assert body["seeded"] == 20 and len(body["events"]) == 20
+    assert {event["request_id"] for event in body["events"]} == {
+        f"req_seed{i:02d}" for i in range(20)
+    }
     assert int((await redis_client.hgetall(STATS_KEY)).get("requests", 0)) == requests_before + 20
     assert await redis_client.xlen(EVENTS_KEY) == events_before + 20
     assert await redis_client.llen(OVERHEAD_KEY) == overhead_before + 20

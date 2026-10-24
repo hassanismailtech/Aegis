@@ -64,3 +64,11 @@
 - Leak-test line `leaks: 0 / N planted entities` prints in-test and is echoed under plain `pytest -q` via a small `pytest_terminal_summary` hook in a new `backend/conftest.py` (`Config` attribute handoff — pytest hides prints of passing tests otherwise).
 - Tests using the mock Upstream route but asserting *exact* reinjected values (tool arguments, multi-turn numbering) monkeypatch `settings.ner_enabled=False` like the Step-3 tests: gazetteer + patterns are deterministic, GLiNER is not (it sometimes tags stray words as PERSON).
 - Environment note: `docker ps` shows `aegis-redis-1` on :6379, so all telemetry/failure-policy tests exercise the real Redis instance.
+
+### Step 5: Dashboard, demo and public documentation
+
+- The dashboard is a single client page with four focused components; it consumes only Telemetry Events, aggregate stats and post-scrub Wire Tap bodies. It does not replay historical events because the SSE route is live-only; the seed endpoint provides the intentional empty-state population path.
+- The dashboard refreshes aggregate stats every five seconds and applies incoming SSE events immediately so the top bar remains useful during an active demo.
+- Wire View renders message content from the Wire Tap because that endpoint is explicitly post-scrub; it does not render the original client transcript.
+- README commands use `127.0.0.1` for local backend calls to avoid host proxy behavior observed on this Windows machine; the browser-facing URL remains `localhost:3000`.
+- README documents the current security boundary and intentionally excluded controls (authentication, TLS termination, rate limiting and tenant isolation) rather than presenting the prototype as production-compliant.

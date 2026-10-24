@@ -7,8 +7,9 @@ entities` (also surfaced under plain `pytest -q` via conftest.py).
 
 import json
 import uuid
-from pathlib import Path
 from collections.abc import AsyncIterator
+from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 import pytest
@@ -16,6 +17,7 @@ from asgi_lifespan import LifespanManager
 
 from app import main as aegis_main
 from app.main import app as aegis_app
+from app.telemetry import LEAKTEST_KEY
 from app.upstream import Upstream
 from scripts.mock_upstream import app as mock_app
 
@@ -72,4 +74,16 @@ async def test_no_planted_pii_in_any_wire_tap_body(
     summary = f"leaks: {len(leaks)} / {total} planted entities"
     print(summary, flush=True)
     setattr(pytestconfig, "_aegis_leak_line", summary)
+    if pytestconfig.getoption("--report"):
+        # Dashboard reads this via /v1/aegis/stats (Step 5).
+        await aegis_app.state.redis.set(
+            LEAKTEST_KEY,
+            json.dumps(
+                {
+                    "leaks": len(leaks),
+                    "planted": total,
+                    "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                }
+            ),
+        )
     assert not leaks, "leaked to the Wire Tap: " + ", ".join(leaks)

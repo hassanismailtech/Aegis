@@ -61,6 +61,9 @@ def _score(rows: list[dict]) -> dict[str, tuple[int, int, int]]:
 async def main() -> None:
     rows = [json.loads(line) for line in _PRED_FILE.read_text(encoding="utf-8").splitlines()]
     ner = await warm_ner()
+    if ner is not None:
+        # First inference is cold (JIT); warm it so NER_TIMEOUT_MS measures the model, not startup.
+        await asyncio.to_thread(ner.find_persons, ["Warm up Chinedu Okafor."])
     mode = "pattern + gazetteer + GLiNER" if ner else "pattern + gazetteer (NER off)"
     print(f"eval: {len(rows)} sentences from demo/labeled_eval.jsonl; layers: {mode}")
     scored = [
