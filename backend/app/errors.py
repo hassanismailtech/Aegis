@@ -1,6 +1,10 @@
-"""OpenAI-shaped error bodies (PRD 7.4)."""
+"""OpenAI-shaped error bodies (PRD 7.4) and Scrubber failure type (PRD 8)."""
 
 from typing import Any
+
+
+class ScrubError(Exception):
+    """Scrubber failure (pattern/gazetteer/NER); requests fail closed (PRD 8)."""
 
 
 def aegis_error(

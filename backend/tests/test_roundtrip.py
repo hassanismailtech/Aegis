@@ -18,9 +18,11 @@ from asgi_lifespan import LifespanManager
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app import main as aegis_main
 from app.config import settings
+from app.errors import ScrubError
 from app.main import WIRETAP_TTL_SECONDS, app as aegis_app
 from app.upstream import Upstream
 from scripts.mock_upstream import app as mock_app
@@ -82,7 +84,8 @@ async def aegis_with_upstream(
     monkeypatch: pytest.MonkeyPatch, upstream: Upstream
 ) -> AsyncIterator[httpx.AsyncClient]:
     monkeypatch.setattr(aegis_main, "build_upstream", lambda: upstream)
-    async with LifespanManager(aegis_app):
+    # GLiNER warms in lifespan (PRD 5.2): the one-time load needs > asgi-lifespan's 5s default.
+    async with LifespanManager(aegis_app, startup_timeout=300):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=aegis_app),
             base_url="http://aegis.test",
@@ -111,10 +114,14 @@ async def test_plain_request_round_trips(client: httpx.AsyncClient) -> None:
     assert response.headers["content-type"].startswith("application/json")
     assert response.json()["choices"][0]["message"]["content"].startswith("Transfer initiated to")
     assert response.headers["X-Aegis-Request-Id"].startswith("req_")
-    assert response.headers["X-Aegis-Overhead-Ms"] == "0"
+    assert 0.0 <= float(response.headers["X-Aegis-Overhead-Ms"]) <= settings.ner_timeout_ms
+    assert response.headers["X-Aegis-Entities"].isdigit()
 
 
-async def test_stream_true_returns_valid_sse(client: httpx.AsyncClient) -> None:
+async def test_stream_true_returns_valid_sse(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", False)  # passthrough test: no NER
     response = await client.post("/v1/chat/completions", json={**_PAYLOAD, "stream": True})
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
@@ -179,8 +186,11 @@ async def test_upstream_timeout_maps_to_504(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 async def test_unknown_fields_reach_upstream_unchanged(
-    client: httpx.AsyncClient, redis_client: Redis
+    client: httpx.AsyncClient,
+    redis_client: Redis,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", False)  # passthrough test: no NER
     payload = {
         **_PAYLOAD,
         "reasoning_effort": "high",
@@ -230,3 +240,69 @@ async def test_malformed_body_is_openai_shaped_400(client: httpx.AsyncClient) ->
     response = await client.post("/v1/chat/completions", json={"messages": []})
     assert response.status_code == 400
     assert response.json()["error"]["type"] == "invalid_request_error"
+
+
+async def test_scrubber_replaces_pii_before_upstream(client: httpx.AsyncClient) -> None:
+    """Step 3: Nigerian PII becomes Placeholders; Wire Tap proves it (PRD 3)."""
+    planted = ["Chinedu Okafor", "22334455667", "0803 123 4567", "ada@obi.ng"]
+    payload = {
+        **_PAYLOAD,
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Transfer 50000 to Chinedu Okafor, BVN 22334455667, "
+                    "phone 0803 123 4567, email ada@obi.ng"
+                ),
+            }
+        ],
+    }
+    response = await client.post(
+        "/v1/chat/completions",
+        json=payload,
+        headers={"X-Aegis-Session": "step3-wiring-pii"},
+    )
+    assert response.status_code == 200
+    entity_count = response.headers["X-Aegis-Entities"]
+    assert entity_count.isdigit() and int(entity_count) >= 4
+
+    request_id = response.headers["X-Aegis-Request-Id"]
+    tap = await client.get(f"/v1/aegis/wiretap/{request_id}")
+    assert tap.status_code == 200
+    outbound = json.dumps(tap.json())
+    for value in planted:
+        assert value not in outbound
+    assert "[[PERSON_1]]" in outbound and "[[BVN_1]]" in outbound
+    assert "[[PHONE_1]]" in outbound and "[[EMAIL_1]]" in outbound
+
+
+async def test_scrub_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PRD 8: ScrubError blocks fail-closed — 503, nothing sent Upstream."""
+
+    async def boom(*args: object, **kwargs: object) -> object:
+        raise ScrubError("simulated NER timeout")
+
+    monkeypatch.setattr(aegis_main, "scrub_messages", boom)
+    async with aegis_with_upstream(monkeypatch, Upstream(
+        base_url="http://mock-upstream.test/v1", client=_upstream_client(mock_app)
+    )) as client:
+        response = await client.post("/v1/chat/completions", json=_PAYLOAD)
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "aegis_scrub_failed"
+        tap = await client.get("/v1/aegis/wiretap/req_missing")
+        assert tap.status_code == 404  # nothing was stored or sent
+
+
+async def test_redis_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PRD 8: Redis down before Upstream → 503 aegis_state_unavailable."""
+
+    async def boom(*args: object, **kwargs: object) -> object:
+        raise RedisError("simulated outage")
+
+    monkeypatch.setattr(aegis_main, "scrub_messages", boom)
+    async with aegis_with_upstream(monkeypatch, Upstream(
+        base_url="http://mock-upstream.test/v1", client=_upstream_client(mock_app)
+    )) as client:
+        response = await client.post("/v1/chat/completions", json=_PAYLOAD)
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "aegis_state_unavailable"

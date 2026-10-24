@@ -1,0 +1,40 @@
+{"text": "Transfer 50k to Chinedu Okafor using his GTB card today.", "spans": [{"start": 16, "end": 30, "type": "PERSON", "text": "Chinedu Okafor"}]}
+{"text": "Ada Obi is the customer onboarding Ngozi Eze this morning.", "spans": [{"start": 0, "end": 7, "type": "PERSON", "text": "Ada Obi"}, {"start": 35, "end": 44, "type": "PERSON", "text": "Ngozi Eze"}]}
+{"text": "She said Musa Danjuma called the branch manager twice.", "spans": [{"start": 9, "end": 21, "type": "PERSON", "text": "Musa Danjuma"}]}
+{"text": "The portfolio manager, Funmi Oladiji, signed the mandate form.", "spans": [{"start": 23, "end": 36, "type": "PERSON", "text": "Funmi Oladiji"}]}
+{"text": "Domiciliary request from Aminatu Sadiq was filed before noon.", "spans": [{"start": 25, "end": 38, "type": "PERSON", "text": "Aminatu Sadiq"}]}
+{"text": "CHIKE OBI is our new branch officer in Onitsha.", "spans": [{"start": 0, "end": 9, "type": "PERSON", "text": "CHIKE OBI"}]}
+{"text": "Both Yemi Adeyemi and Abiodun Omotayo signed the form.", "spans": [{"start": 5, "end": 17, "type": "PERSON", "text": "Yemi Adeyemi"}, {"start": 22, "end": 37, "type": "PERSON", "text": "Abiodun Omotayo"}]}
+{"text": "Email Fatima Bello about the FCMB draft.", "spans": [{"start": 6, "end": 18, "type": "PERSON", "text": "Fatima Bello"}]}
+{"text": "The customer dialed 08039197215 twice from Lagos.", "spans": [{"start": 20, "end": 31, "type": "PHONE", "text": "08039197215"}]}
+{"text": "Her line 08132300456 remains the contact of record.", "spans": [{"start": 9, "end": 20, "type": "PHONE", "text": "08132300456"}]}
+{"text": "Reach Musa Danjuma on +234 809 234 1187 for the wire.", "spans": [{"start": 6, "end": 18, "type": "PERSON", "text": "Musa Danjuma"}, {"start": 22, "end": 39, "type": "PHONE", "text": "+234 809 234 1187"}]}
+{"text": "Old records still list 0705 442 1189 as the phone number.", "spans": [{"start": 23, "end": 36, "type": "PHONE", "text": "0705 442 1189"}]}
+{"text": "The agent's other contact 0812-744-2085 is offline till Monday.", "spans": [{"start": 26, "end": 39, "type": "PHONE", "text": "0812-744-2085"}]}
+{"text": "Umar Yakubu can be called at 2348139218907 after work.", "spans": [{"start": 29, "end": 42, "type": "PHONE", "text": "2348139218907"}]}
+{"text": "He tendered BVN 22334455667 at the counter.", "spans": [{"start": 16, "end": 27, "type": "BVN", "text": "22334455667"}]}
+{"text": "Tracking number 33211223344 was raised for the complaint.", "spans": [{"start": 16, "end": 27, "type": "BVN", "text": "33211223344"}]}
+{"text": "KYC file lists 44332211009 as the customer's reference.", "spans": [{"start": 15, "end": 26, "type": "BVN", "text": "44332211009"}]}
+{"text": "Send the eleven digits 55667700991 with the form.", "spans": [{"start": 23, "end": 34, "type": "BVN", "text": "55667700991"}]}
+{"text": "The bank account requires 66778800112 for linkage.", "spans": [{"start": 26, "end": 37, "type": "BVN", "text": "66778800112"}]}
+{"text": "Customer insisted 77991166554 must not move without approval.", "spans": [{"start": 18, "end": 29, "type": "BVN", "text": "77991166554"}]}
+{"text": "This stretched write-up, 2 2 3 3 4 4 5 5 6 6 7 is also an identity code.", "spans": [{"start": 25, "end": 46, "type": "BVN", "text": "2 2 3 3 4 4 5 5 6 6 7"}]}
+{"text": "NIN 18938412239 has to start with 1 these days.", "spans": [{"start": 4, "end": 15, "type": "NIN", "text": "18938412239"}]}
+{"text": "His National Identification Number 09987761221 was captured in Kano.", "spans": [{"start": 35, "end": 46, "type": "NIN", "text": "09987761221"}]}
+{"text": "Provide the NIN slip for 11223344556 before submission.", "spans": [{"start": 25, "end": 36, "type": "NIN", "text": "11223344556"}]}
+{"text": "Update record nin 20234119876 in the registry.", "spans": [{"start": 18, "end": 29, "type": "NIN", "text": "20234119876"}]}
+{"text": "The National Identification Number of 87610199345 expired.", "spans": [{"start": 38, "end": 49, "type": "NIN", "text": "87610199345"}]}
+{"text": "She recited her NIN: 77619234102 over the call.", "spans": [{"start": 21, "end": 32, "type": "NIN", "text": "77619234102"}]}
+{"text": "Debit account 0123456789 for the utility bill.", "spans": [{"start": 14, "end": 24, "type": "ACCOUNT_NO", "text": "0123456789"}]}
+{"text": "Standing order on acct 3344772251 cleared.", "spans": [{"start": 23, "end": 33, "type": "ACCOUNT_NO", "text": "3344772251"}]}
+{"text": "Update the NUBAN 0765432109 to collect UBA alerts.", "spans": [{"start": 17, "end": 27, "type": "ACCOUNT_NO", "text": "0765432109"}]}
+{"text": "Transfer to the a/c 4112345678 only after confirmation.", "spans": [{"start": 20, "end": 30, "type": "ACCOUNT_NO", "text": "4112345678"}]}
+{"text": "The settlement account 5559819034 belongs to Musa Danjuma.", "spans": [{"start": 23, "end": 33, "type": "ACCOUNT_NO", "text": "5559819034"}, {"start": 45, "end": 57, "type": "PERSON", "text": "Musa Danjuma"}]}
+{"text": "Write down account 0 1 2 3 4 5 6 7 8 9 for the supervisor.", "spans": [{"start": 19, "end": 38, "type": "ACCOUNT_NO", "text": "0 1 2 3 4 5 6 7 8 9"}]}
+{"text": "All receipts go to ada.obi@gtbank.ng from Monday.", "spans": [{"start": 19, "end": 36, "type": "EMAIL", "text": "ada.obi@gtbank.ng"}]}
+{"text": "Send the form to support-help@corp.aegis-plus.com today.", "spans": [{"start": 17, "end": 49, "type": "EMAIL", "text": "support-help@corp.aegis-plus.com"}]}
+{"text": "Both mailboxes, ada@x.ng and obi.z@y.com, bounce.", "spans": [{"start": 16, "end": 24, "type": "EMAIL", "text": "ada@x.ng"}, {"start": 29, "end": 40, "type": "EMAIL", "text": "obi.z@y.com"}]}
+{"text": "The FX desk opens at nine and runs till four.", "spans": []}
+{"text": "Hold the file for the compliance cartel review team.", "spans": []}
+{"text": "Funds cleared through the UBA branch system overnight.", "spans": []}
+{"text": "Approved the mandate for the credit union of Onitsha.", "spans": []}

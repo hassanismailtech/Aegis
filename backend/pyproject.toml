@@ -12,6 +12,9 @@ dependencies = [
     "pydantic-settings>=2.3",
     "gliner>=0.2.13",
     "openai>=1.40",
+    "tiktoken>=0.14.0",
+    "transformers>=4.51.3,<5",
+    "protobuf>=7.36.2",
 ]
 
 [dependency-groups]
