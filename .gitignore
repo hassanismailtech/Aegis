@@ -1,0 +1,15 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# environment (rule 10: never commit .env)
+.env
+
+# frontend (added in step 5)
+node_modules/
+.next/
+
+# os / editors
+.DS_Store
