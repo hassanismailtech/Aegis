@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={cn("dark font-sans antialiased", geist.variable)}>
       <body className="min-h-screen bg-background text-foreground">
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
