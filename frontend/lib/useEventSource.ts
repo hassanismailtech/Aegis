@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { AEGIS_URL } from "@/lib/api";
+import { AEGIS_TOKEN, AEGIS_URL } from "@/lib/api";
 import type { TelemetryEvent } from "@/lib/types";
 
 export type ConnectionStatus = "connecting" | "live" | "retrying";
@@ -30,7 +30,8 @@ export function useEventSource(
     const connect = () => {
       if (disposed) return;
       setStatus(attempt === 0 ? "connecting" : "retrying");
-      source = new EventSource(`${AEGIS_URL}/v1/aegis/events`);
+      const token = AEGIS_TOKEN ? `?access_token=${encodeURIComponent(AEGIS_TOKEN)}` : "";
+      source = new EventSource(`${AEGIS_URL}/v1/aegis/events${token}`);
       source.onopen = () => {
         attempt = 0;
         setStatus("live");

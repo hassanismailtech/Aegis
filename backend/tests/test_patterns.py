@@ -75,6 +75,12 @@ def test_amounts_are_left_alone() -> None:
     assert pattern_spans("Transfer 50000 now") == []
     assert _spans("Transfer 5000000000 to the account") == []
     assert _spans("send 4500000000 later") == []
+    assert _spans("N9100000000") == []
+
+
+def test_bare_local_phone_requires_phone_context() -> None:
+    assert _spans("8031234567") == []
+    assert _spans("phone 8031234567") == [("PHONE", "8031234567")]
 
 
 # ------------------------------------------------------------------ BVN (PRD 6)

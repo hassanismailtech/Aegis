@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     ner_timeout_ms: int = 2000
     fee_usd_per_1k_tokens: float = 0.001
     cors_origins: str = "http://localhost:3000"
+    aegis_demo_token: str = ""
 
 
 settings = Settings()

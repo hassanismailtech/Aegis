@@ -1,6 +1,7 @@
 """Aegis Proxy (Step 4): Scrubber → Wire Tap → Upstream → Reinjector → Telemetry."""
 
 import hashlib
+import hmac
 import json
 import time
 import uuid
@@ -77,7 +78,7 @@ async def healthz() -> dict[str, str]:
 
 
 def _sse_events(completion: dict[str, Any]) -> Iterator[bytes]:
-    """Pseudo-stream (PRD 5.1): content chunk, finish chunk, [DONE], same id/model."""
+    """Pseudo-stream with content and tool-call deltas, then [DONE]."""
 
     def chunk(delta: dict[str, Any], finish_reason: str | None) -> bytes:
         event = {
@@ -90,19 +91,66 @@ def _sse_events(completion: dict[str, Any]) -> Iterator[bytes]:
         return b"data: " + json.dumps(event).encode() + b"\n\n"
 
     choice = completion["choices"][0]
-    content = choice["message"].get("content") or ""
-    yield chunk({"role": choice["message"].get("role", "assistant"), "content": content}, None)
-    yield chunk({}, choice.get("finish_reason"))
+    message = choice["message"]
+    delta: dict[str, Any] = {"role": message.get("role", "assistant")}
+    if message.get("content"):
+        delta["content"] = message["content"]
+    if message.get("tool_calls"):
+        yield chunk(delta, None)
+    elif delta.keys() != {"role"}:
+        yield chunk(delta, None)
+    for index, call in enumerate(message.get("tool_calls") or []):
+        function = call.get("function") or {}
+        yield chunk(
+            {
+                "tool_calls": [
+                    {
+                        "index": index,
+                        "id": call.get("id"),
+                        "type": call.get("type", "function"),
+                        "function": {
+                            "name": function.get("name"),
+                            "arguments": function.get("arguments", ""),
+                        },
+                    }
+                ]
+            },
+            None,
+        )
+    yield chunk({}, choice.get("finish_reason") or ("tool_calls" if message.get("tool_calls") else "stop"))
     yield b"data: [DONE]\n\n"
 
 
 def _session_id(request: Request) -> str:
-    """PRD 2: X-Aegis-Session, else first 16 hex of sha256 of Authorization;
-    with no Authorization header the empty string is hashed."""
+    """Use an explicit session when supplied, otherwise isolate this request."""
     header = request.headers.get("X-Aegis-Session")
     if header:
         return header
-    return hashlib.sha256(request.headers.get("Authorization", "").encode()).hexdigest()[:16]
+    authorization = request.headers.get("Authorization")
+    if authorization:
+        return hashlib.sha256(authorization.encode()).hexdigest()[:16]
+    return "anon-" + uuid.uuid4().hex
+
+
+def _authorized(request: Request) -> bool:
+    """Optional deployment guard for the proxy and operational endpoints."""
+    expected = settings.aegis_demo_token
+    if not expected:
+        return True
+    supplied = request.headers.get("X-Aegis-Demo-Token")
+    if supplied is None and request.headers.get("Authorization", "").startswith("Bearer "):
+        supplied = request.headers["Authorization"][7:]
+    if supplied is None:
+        supplied = request.query_params.get("access_token")
+    return supplied is not None and hmac.compare_digest(supplied, expected)
+
+
+def _auth_error() -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        headers={"WWW-Authenticate": "Bearer"},
+        content=aegis_error("Aegis access token required.", "aegis_unauthorized"),
+    )
 
 
 async def _blocked(
@@ -140,6 +188,8 @@ async def _blocked(
 
 @app.post("/v1/chat/completions")
 async def chat_completions(chat: ChatRequest, request: Request) -> Response:
+    if not _authorized(request):
+        return _auth_error()
     request_id = "req_" + uuid.uuid4().hex
     headers = {"X-Aegis-Request-Id": request_id}
     state = request.app.state
@@ -237,6 +287,8 @@ async def chat_completions(chat: ChatRequest, request: Request) -> Response:
 
 @app.get("/v1/aegis/wiretap/{request_id}")
 async def wiretap(request_id: str, request: Request) -> Response:
+    if not _authorized(request):
+        return _auth_error()
     try:
         raw = await request.app.state.redis.get(_wiretap_key(request_id))
     except RedisError:
@@ -257,6 +309,8 @@ async def wiretap(request_id: str, request: Request) -> Response:
 @app.get("/v1/aegis/events")
 async def events(request: Request) -> StreamingResponse:
     """Live Telemetry Events as SSE (PRD 5.5): event name `telemetry`, heartbeats."""
+    if not _authorized(request):
+        return _auth_error()
 
     async def stream() -> AsyncIterator[bytes]:
         pubsub = request.app.state.redis.pubsub()
@@ -276,12 +330,18 @@ async def events(request: Request) -> StreamingResponse:
         finally:
             await pubsub.aclose()
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
+    )
 
 
 @app.get("/v1/aegis/stats")
 async def stats(request: Request) -> Response:
     """Aggregates: totals, per-type counts, p50/p95 overhead, fee (PRD 5.5, 7.2)."""
+    if not _authorized(request):
+        return _auth_error()
     try:
         aggregate = await telemetry_stats(request.app.state.redis)
     except RedisError:
@@ -297,6 +357,8 @@ async def stats(request: Request) -> Response:
 @app.post("/v1/aegis/_seed")
 async def seed(request: Request) -> JSONResponse:
     """20 synthetic Telemetry Events for an instantly populated dashboard (PRD 11)."""
+    if not _authorized(request):
+        return _auth_error()
     events = seed_events()
     for event in events:
         await record_event(request.app.state.redis, event)

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from typing import Any
 
@@ -31,6 +32,15 @@ _PRIORITY = {
     EntityType.BVN: 4,
     EntityType.PERSON: 5,
 }
+_PLACEHOLDER_LOOKALIKE = re.compile(r"\[\[\s*[A-Za-z_]+_\d+\s*\]\]")
+
+
+def _neutralize_placeholder_lookalikes(text: str) -> str:
+    """Prevent client-supplied Placeholder syntax from addressing Session Map state."""
+    return _PLACEHOLDER_LOOKALIKE.sub(
+        lambda match: match.group(0).replace("[[", "[ [").replace("]]", "] ]"),
+        text,
+    )
 
 
 def merge_spans(spans: list[Span]) -> list[Span]:
@@ -108,6 +118,7 @@ async def _scrub_text(
     `context` prepends synthetic text for label matching (JSON key names, e.g.
     "account_no") without scrubbing it: spans must start after the prefix.
     """
+    text = _neutralize_placeholder_lookalikes(text)
     spans = await _detect(context + text, ner) if context else await _detect(text, ner)
     if context:
         cut = len(context)

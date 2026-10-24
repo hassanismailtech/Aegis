@@ -72,3 +72,12 @@
 - Wire View renders message content from the Wire Tap because that endpoint is explicitly post-scrub; it does not render the original client transcript.
 - README commands use `127.0.0.1` for local backend calls to avoid host proxy behavior observed on this Windows machine; the browser-facing URL remains `localhost:3000`.
 - README documents the current security boundary and intentionally excluded controls (authentication, TLS termination, rate limiting and tenant isolation) rather than presenting the prototype as production-compliant.
+
+### Review hardening
+
+- Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.
+- Requests without an explicit session or Authorization now receive a unique anonymous session id; the demo continues to use its explicit session header for multi-turn stability.
+- `AEGIS_DEMO_TOKEN` is optional to preserve local quickstart behavior; when set, it guards chat, stats, events, Wire Tap and seed routes. Browser SSE accepts the same token through its EventSource query because native EventSource cannot set headers.
+- Pseudo-streaming now emits tool-call deltas and a `tool_calls` finish reason.
+- Bare ten-digit local phone patterns require phone context; prefixed forms remain rule-detected.
+- Latest benchmark: pattern p50/p95 is 0.18/0.68 ms for 60 words and 1.71/2.86 ms for 500 words; GLiNER p50/p95 is 428.6/1270.6 ms and 2651.3/3730.9 ms respectively. Deliberate leetspeak and spelled-out digit evasion remain an explicit limitation.

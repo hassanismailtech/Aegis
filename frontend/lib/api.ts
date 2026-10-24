@@ -3,9 +3,17 @@ import type { SeedResponse, Stats, WireTap } from "@/lib/types";
 export const AEGIS_URL = (
   process.env.NEXT_PUBLIC_AEGIS_URL ?? "http://localhost:8000"
 ).replace(/\/+$/, "");
+export const AEGIS_TOKEN = process.env.NEXT_PUBLIC_AEGIS_TOKEN;
+
+export function aegisHeaders(): HeadersInit {
+  return AEGIS_TOKEN ? { "X-Aegis-Demo-Token": AEGIS_TOKEN } : {};
+}
 
 async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${AEGIS_URL}${path}`, { cache: "no-store" });
+  const response = await fetch(`${AEGIS_URL}${path}`, {
+    cache: "no-store",
+    headers: aegisHeaders(),
+  });
   if (!response.ok) {
     throw new Error(`Aegis ${path} returned ${response.status}`);
   }
@@ -25,6 +33,7 @@ export function fetchWireTap(requestId: string): Promise<WireTap> {
 export async function seedDemoData(): Promise<SeedResponse> {
   const response = await fetch(`${AEGIS_URL}/v1/aegis/_seed`, {
     method: "POST",
+    headers: aegisHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Aegis seed returned ${response.status}`);

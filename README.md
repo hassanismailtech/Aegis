@@ -83,6 +83,15 @@ npm run dev
 
 Open `http://localhost:3000`. Select **Seed demo data** for an immediate synthetic view, or leave the dashboard open while the agent runs.
 
+For a shared demo host, set the same optional access token in both services:
+
+```dotenv
+AEGIS_DEMO_TOKEN=change-this-demo-secret
+NEXT_PUBLIC_AEGIS_TOKEN=change-this-demo-secret
+```
+
+The token protects chat, stats, events, Wire Tap and seed endpoints. The dashboard uses a query parameter only for its browser-native SSE connection; use a private network or an authenticated gateway for real deployments.
+
 ### 5. Run the demo agent
 
 In another terminal:
@@ -131,6 +140,7 @@ Recall and latency are measured, not promised. `eval_recall.py` reports per-type
 ## Honest limitations
 
 - Names are model-detected and recall is measured, not guaranteed; structured IDs are rule-detected.
+- Deliberately obfuscated values such as leetspeak/spelled-out digits are not guaranteed to be detected; do not present the current Scrubber as an adversarial-evasion defense.
 - True chunked streaming with a hold-back buffer is not implemented yet; `stream: true` uses a valid pseudo-stream after a non-streaming Upstream call.
 - The mock Upstream is intentionally in-memory and is for offline demos, not production inference.
 - Redis is ephemeral and there is no persistence, authentication, billing, user account or multi-tenant control plane.

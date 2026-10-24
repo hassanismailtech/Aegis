@@ -26,6 +26,7 @@ _PHONE = re.compile(
     rf"(?<!\d)(?:\+234{_SEP}*|234{_SEP}*|0{_SEP}?)?"
     rf"[789]{_SEP}?[01](?:{_SEP}*\d){{8}}(?!\d)"
 )
+_PHONE_CONTEXT = re.compile(r"(?i)(?:call|phone|tel(?:ephone)?|mobile|contact)\s*$")
 _EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # Labels tolerate JSON key spellings ("nin", "account_no") around underscores.
 _NIN_LABEL = re.compile(r"(?i)(?<![a-z])nin(?![a-z])|national identification")
@@ -63,6 +64,10 @@ def pattern_spans(text: str) -> list[Span]:
     spans.extend(
         Span(match.start(), match.end(), EntityType.PHONE, match.group(0))
         for match in _PHONE.finditer(text)
+        if (
+            match.group(0).lstrip().startswith(("0", "234", "+234"))
+            or _PHONE_CONTEXT.search(text[max(0, match.start() - _WINDOW):match.start()])
+        )
     )
     for match in _DIG11.finditer(text):
         if _overlaps_any(match.start(), match.end(), spans):

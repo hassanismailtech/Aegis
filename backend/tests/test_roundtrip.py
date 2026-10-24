@@ -141,6 +141,69 @@ async def test_stream_true_returns_valid_sse(
     assert chunks[1]["choices"][0]["finish_reason"] == "stop"
 
 
+async def test_stream_true_preserves_tool_call_delta(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", False)
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-5-mini",
+            "stream": True,
+            "messages": [{"role": "user", "content": "Look up Ada Obi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "lookup_customer",
+                        "parameters": {"type": "object", "properties": {"name": {"type": "string"}}},
+                    },
+                }
+            ],
+        },
+    )
+    events = [e for e in response.text.split("\n\n") if e.strip()]
+    chunks = [json.loads(e.removeprefix("data: ")) for e in events[:-1]]
+    tool_delta = chunks[1]["choices"][0]["delta"]["tool_calls"][0]
+    assert tool_delta["function"]["name"] == "lookup_customer"
+    assert chunks[2]["choices"][0]["finish_reason"] == "tool_calls"
+
+
+async def test_client_placeholder_cannot_reinject_session_value(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", False)
+    session = "placeholder-injection-" + uuid.uuid4().hex[:8]
+    first = await client.post(
+        "/v1/chat/completions",
+        json={"model": "gpt-5-mini", "messages": [{"role": "user", "content": "Chinedu Okafor"}]},
+        headers={"X-Aegis-Session": session},
+    )
+    assert first.status_code == 200
+    second = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "gpt-5-mini",
+            "messages": [{"role": "user", "content": "literal [[PERSON_1]]"}],
+        },
+        headers={"X-Aegis-Session": session},
+    )
+    assert second.status_code == 200
+    assert "Chinedu Okafor" not in second.text
+
+
+async def test_demo_token_protects_operational_routes(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "aegis_demo_token", "test-secret")
+    denied = await client.get("/v1/aegis/stats")
+    assert denied.status_code == 401
+    allowed = await client.get(
+        "/v1/aegis/stats", headers={"X-Aegis-Demo-Token": "test-secret"}
+    )
+    assert allowed.status_code == 200
+
+
 async def test_upstream_500_maps_to_openai_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     upstream = Upstream(base_url="http://flaky.test/v1", client=_upstream_client(flaky_upstream))
     async with aegis_with_upstream(monkeypatch, upstream) as client:
