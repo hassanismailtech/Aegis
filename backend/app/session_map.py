@@ -57,3 +57,13 @@ class SessionMap:
         pipe.expire(self.ctr_key, self.ttl)
         original, *_ = await pipe.execute()
         return original
+
+    async def forward_map(self) -> dict[str, str]:
+        """Every Placeholder -> original of this Session (PRD 5.4); sliding TTL refreshed."""
+        pipe = self.redis.pipeline(transaction=False)
+        pipe.hgetall(self.fwd_key)
+        pipe.expire(self.fwd_key, self.ttl)
+        pipe.expire(self.rev_key, self.ttl)
+        pipe.expire(self.ctr_key, self.ttl)
+        entries, *_ = await pipe.execute()
+        return entries

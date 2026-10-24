@@ -8,6 +8,7 @@ blackhole server instead.
 
 import asyncio
 import json
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -24,7 +25,9 @@ from app import main as aegis_main
 from app.config import settings
 from app.errors import ScrubError
 from app.main import WIRETAP_TTL_SECONDS, app as aegis_app
+from app.session_map import SessionMap
 from app.upstream import Upstream
+from scripts import mock_upstream as mock_upstream_module
 from scripts.mock_upstream import app as mock_app
 
 _PAYLOAD: dict[str, Any] = {
@@ -276,6 +279,116 @@ async def test_scrubber_replaces_pii_before_upstream(client: httpx.AsyncClient) 
     assert "[[PHONE_1]]" in outbound and "[[EMAIL_1]]" in outbound
 
 
+async def test_tool_call_round_trip_reinjects_arguments(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Step 4: mock Upstream tool mode returns arguments with Placeholders; the
+    client still receives the real values (PRD 3 step 5, PRD 5.4).
+
+    NER is off: the gazetteer covers the planted names deterministically."""
+    monkeypatch.setattr(settings, "ner_enabled", False)
+    planted = ["Chinedu Okafor", "22334455667", "08031234567"]  # checked: sees order
+    payload = {
+        **_PAYLOAD,
+        "messages": [
+            {
+                "role": "user",
+                "content": "Book transfer 50000: to Chinedu Okafor, BVN 22334455667, phone 08031234567",
+            }
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "initiate_transfer",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+        ],
+    }
+    response = await client.post("/v1/chat/completions", json=payload)
+    assert response.status_code == 200
+    assert response.headers["X-Aegis-Unresolved"] == "0"
+    tool_calls = response.json()["choices"][0]["message"]["tool_calls"]
+    arguments = json.loads(tool_calls[0]["function"]["arguments"])
+    assert arguments == {"placeholders": planted}
+
+
+async def test_second_turn_rescrubs_history_to_same_placeholders(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Step 4 item 4: multi-turn — the agent resends history that now contains
+    reinjected real values; the Scrubber must reuse the same Placeholders.
+
+    NER is off: gazetteer + patterns give deterministic numbering."""
+    monkeypatch.setattr(settings, "ner_enabled", False)
+    sid = "step4-multiturn-" + uuid.uuid4().hex[:8]
+    first = "Wire 50000 to Chinedu Okafor from account 0123456789."
+    r1 = await client.post(
+        "/v1/chat/completions",
+        json={**_PAYLOAD, "messages": [{"role": "user", "content": first}]},
+        headers={"X-Aegis-Session": sid},
+    )
+    assert r1.status_code == 200
+    reply = r1.json()["choices"][0]["message"]  # client saw REINJECTED real values
+    assert "Chinedu Okafor" in reply["content"]
+
+    r2 = await client.post(
+        "/v1/chat/completions",
+        json={
+            **_PAYLOAD,
+            "messages": [
+                {"role": "user", "content": first},
+                {"role": "assistant", "content": reply["content"]},
+                {"role": "user", "content": "Confirm the transfer to Chinedu Okafor."},
+            ],
+        },
+        headers={"X-Aegis-Session": sid},
+    )
+    assert r2.status_code == 200
+    tap = await client.get(f"/v1/aegis/wiretap/{r2.headers['X-Aegis-Request-Id']}")
+    outbound = json.dumps(tap.json())
+    assert "[[PERSON_1]]" in outbound  # same numbering as turn 1, never PERSON_2
+    assert "[[ACCOUNT_NO_1]]" in outbound
+    assert "Chinedu Okafor" not in outbound and "0123456789" not in outbound
+
+
+async def test_redis_flush_between_scrub_and_reinject_is_state_loss(
+    client: httpx.AsyncClient,
+    redis_client: Redis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PRD 8: Placeholder missing from the Session Map at reinjection (flush)
+    -> reply keeps Placeholders, HTTP 200, X-Aegis-Unresolved, telemetry state_loss."""
+    real_forward_map = SessionMap.forward_map
+
+    async def flush_then_load(self: SessionMap) -> dict[str, str]:
+        await redis_client.flushdb()  # map lost mid-request, after Scrub
+        return await real_forward_map(self)
+
+    monkeypatch.setattr(SessionMap, "forward_map", flush_then_load)
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            **_PAYLOAD,
+            "messages": [{"role": "user", "content": "Transfer 50000 to Chinedu Okafor, BVN 22334455667"}],
+        },
+        headers={"X-Aegis-Session": "step4-flush-" + uuid.uuid4().hex[:8]},
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Aegis-Unresolved"] == "1"
+    content = response.json()["choices"][0]["message"]["content"]
+    assert "Chinedu Okafor" not in content
+    assert "[[PERSON_1]]" in content  # degraded reply, never guessed PII
+
+    entries = await redis_client.xrevrange("aegis:events", count=1)
+    assert entries, "telemetry event recorded"
+    fields = dict(entries[0][1])
+    assert fields["status"] == "state_loss"
+    assert fields["unresolved"] == "1"
+
+
 async def test_scrub_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """PRD 8: ScrubError blocks fail-closed — 503, nothing sent Upstream."""
 
@@ -294,15 +407,20 @@ async def test_scrub_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 async def test_redis_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PRD 8: Redis down before Upstream → 503 aegis_state_unavailable."""
+    """PRD 8: Redis down before Upstream → 503 aegis_state_unavailable, and the
+    mock Upstream /_tap stays empty: nothing ever crossed the border."""
 
     async def boom(*args: object, **kwargs: object) -> object:
         raise RedisError("simulated outage")
 
     monkeypatch.setattr(aegis_main, "scrub_messages", boom)
+    bodies_before = len(mock_upstream_module._bodies)
     async with aegis_with_upstream(monkeypatch, Upstream(
         base_url="http://mock-upstream.test/v1", client=_upstream_client(mock_app)
     )) as client:
         response = await client.post("/v1/chat/completions", json=_PAYLOAD)
         assert response.status_code == 503
         assert response.json()["error"]["code"] == "aegis_state_unavailable"
+        tap = await client.get("/v1/aegis/wiretap/req_missing")
+        assert tap.status_code == 404  # nothing was stored or sent
+        assert len(mock_upstream_module._bodies) == bodies_before  # /_tap unchanged
