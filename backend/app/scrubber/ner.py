@@ -41,8 +41,14 @@ class GlinerNer:
 
     def warm(self) -> None:
         """Blocking load + dummy call; lifespan runs it via asyncio.to_thread."""
+        import os
+
+        import torch
         from gliner import GLiNER  # heavy import: paid once per process
 
+        # 4 logical cores on the demo box: full oversubscription makes p95 2-3x worse
+        # (measured in scripts/bench_scrub.py), so pin threads to the core count.
+        torch.set_num_threads(min(4, os.cpu_count() or 1))
         model = GLiNER.from_pretrained(self.model_name)
         model.predict_entities("Warm up the Scrubber", [LABEL], threshold=self.threshold)
         self._model = model

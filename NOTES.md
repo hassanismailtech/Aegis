@@ -6,7 +6,7 @@
 
 - Added `backend/app/__init__.py` (not spelled out in PRD 10) so `app` imports reliably as a regular package under `uv run` and pytest.
 - `frontend/` is intentionally not created now: PRD 10 marks it as `create-next-app` output (Step 5), and pre-existing files would break `create-next-app`.
-- `pyproject.toml` adds `uvicorn` (required to actually run the FastAPI apps, incl. the mock Upstream on :9000) and dev deps `pytest-asyncio` (async tests), plus a `[tool.pytest.ini_options]` section (`asyncio_mode="auto"`, `pythonpath=["."]", testpaths=["tests"]`).
+- `pyproject.toml` adds `uvicorn` (required to actually run the FastAPI apps, incl. the mock Upstream on :9000) and dev deps `pytest-asyncio` (async tests), plus a `[tool.pytest.ini_options]` section (`asyncio_mode="auto"`, `pythonpath=["."]`, `testpaths=["tests"]`).
 - `backend/.python-version` pins 3.12 (host Python is 3.15; the gliner/torch wheels need <=3.12) so `uv sync` fetches its own 3.12.
 - `SessionMap(redis, sid)` takes an optional third `ttl` kwarg defaulting to `SESSION_TTL_SECONDS`, so tests can use a short sliding TTL. Redis clients must be created with `decode_responses=True`.
 - `config.py` loads `.env` relative to the backend/ working directory (all backend commands run from `backend/`); `.env.example` stays at repo root per PRD 10, copy it to `backend/.env` to use it.
@@ -32,3 +32,17 @@
 - Malformed-body 400s come from the FastAPI `RequestValidationError` handler, so they carry no `X-Aegis-*` headers; all other responses from the route carry `X-Aegis-Request-Id` and `X-Aegis-Overhead-Ms: 0`.
 - `GET /v1/aegis/wiretap/{request_id}` returns the stored body JSON; unknown id → 404 `aegis_not_found`.
 - `scripts/sdk_smoke.py` does not spawn servers; it preflights `/healthz` and mock `/_tap` and exits with the start commands if they are down.
+
+### Step 3: Scrubber
+
+- Deps: pinned `transformers>=4.51.3,<5` (5.16.x breaks gliner_small-v2.1's DeBERTa slow-tokenizer conversion), added `tiktoken` and `protobuf` (both pulled in by the gliner/transformers stack on this uv resolution). GLiNER is loaded lazily inside `scrubber/ner.py` functions: a bare `import gliner` at module top costs ~70s in every fresh Python process, which slowed `uv run pytest` to a crawl for non-NER tests.
+- Warm-failure policy: if the model cannot load, `warm_ner()` returns `None` and the Scrubber silently degrades to pattern + gazetteer (a NER outage must not brick the proxy at startup). A NER *timeout or error at request time* is different: it raises `ScrubError` → 503 `aegis_scrub_unavailable` (fail-closed, PRD 8).
+- PRD 9 fallback is ACTIVE — measured numbers, this box has 4 logical cores: pattern+gazetteer on a 60-word prompt p50=0.17ms / p95=0.27ms; NER layer on leftovers p50=374.3ms / p95=438.6ms, well over the 250ms budget. The fallback (NER only on text left after pattern+gazetteer spans are blanked, chunks capped at 2000 chars, already-blank chunks skipped) is the prescribed mitigation; the remaining latency is GLiNER inference speed on CPU hardware, not code we can trim without dropping the model size.
+- `torch.set_num_threads(min(4, os.cpu_count()))` is set inside `warm()`: with default oversubscription GLiNER p95 hits the 2000ms timeout cap (2-3x worse); pinning to the core count fixed it.
+- Fixing NER threading exposed a second risk: 500-word prompts produce 2 chunks and cost p50≈2.6s, *over* the `NER_TIMEOUT_MS=2000` cap → such requests take the 503 at runtime. `scripts/bench_scrub.py` therefore reports NER timings uncapped (timeout enforcement is proxy runtime behavior, not a scrub-layer property). Larger `NER_TIMEOUT_MS` trades latency budget for availability.
+- Threshold probed 0.5 → 0.8 on `demo/labeled_eval.jsonl`: recall stayed 100% while PERSON precision rose 52%→62% (fewer hallucinated people like "Aegis" scored 0.73). PRD's default `ner_threshold=0.5` is kept in config for fidelity, but 0.7 is the recommended production value (NLA drop).
+- JSON tool-call arguments: the Scrubber has no separator info there, so argument *key names* are passed as label context (`f"{key} "` prefix) to `pattern_spans` — that is how `{"account_no": "0123456789"}` gets scrubbed despite NUBAN mid-line. Label regexes are underscore/hyphen tolerant (`nin`, `acct_n`, `a/c`, NUBAN variants). Arguments that are not valid JSON are scrubbed as plain text.
+- Gazetteer rules: name sequences go up to 3 tokens; multi-word runs match case-insensitively, a single token must be Capitalized (avoids "Well"/"March" false hits).
+- `Session` id resolution (PRD 2): `X-Aegis-Session`, else first 16 hex chars of sha256 of `Authorization`; with no auth header the empty string is hashed (one shared anonymous session per upstream).
+- Tests: passthrough tests disable NER (`monkeypatch.setattr(settings, "ner_enabled", False)`) because GLiNER tags the product name "Aegis" itself as PERSON; `Lifespan(startup_timeout=300)` because model warm-up exceeds the 5s default; PII wiring test uses a unique `X-Aegis-Session: step3-wiring-pii` to isolate Redis placeholder numbering from prior runs' sessions (numbering is per-session stable).
+- Both scripts do a `sys.path.insert` bootstrap of `backend/` so they run portably from any calling environment.

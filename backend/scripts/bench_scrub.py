@@ -6,6 +6,11 @@ follows PRD 9's fallback: GLiNER only on text left after pattern + gazetteer,
 capped at 2000 characters per chunk, with the NER_TIMEOUT_MS budget enforced.
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/: `app` package
+
 import asyncio
 import time
 
@@ -101,19 +106,13 @@ async def bench() -> None:
         timings = []
         for _ in range(RUNS):
             started = time.perf_counter()
-            try:
-                await asyncio.wait_for(
-                    asyncio.to_thread(ner.find_persons, list(chunks)),
-                    settings.ner_timeout_ms / 1000,
-                )
-                timings.append((time.perf_counter() - started) * 1000)
-            except TimeoutError:
-                timings.append(settings.ner_timeout_ms + 0.0)
+            await asyncio.to_thread(ner.find_persons, list(chunks))
+            timings.append((time.perf_counter() - started) * 1000)
         p50, p95 = percentile(timings, 0.5), percentile(timings, 0.95)
-        marker = "" if p95 <= NER_BUDGET_MS else "  (PRD 9 budget 250ms: fallback is ACTIVE)"
+        marker = "" if p95 <= NER_BUDGET_MS else f"  (over the {NER_BUDGET_MS:.0f}ms budget: PRD 9 fallback is ACTIVE)"
         print(
-            f"  NER layer (GLiNER on leftovers, {len(chunks)} chunk(s)): "
-            f"p50={p50:.1f}ms p95={p95:.1f}ms{marker}"
+            f"  NER layer (GLiNER on leftovers, {len(chunks)} chunk(s), "
+            f"uncapped for this report): p50={p50:.1f}ms p95={p95:.1f}ms{marker}"
         )
 
 

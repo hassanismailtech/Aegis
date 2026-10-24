@@ -6,6 +6,11 @@ type overlaps at least half of the labeled span; matching is one-to-one.
 Runs the NER layer when NER_ENABLED, exactly as the proxy runs it.
 """
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # backend/: `app` package
+
 import asyncio
 import json
 from collections import Counter
