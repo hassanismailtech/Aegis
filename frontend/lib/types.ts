@@ -82,3 +82,9 @@ export interface SeedResponse {
   seeded: number;
   events: TelemetryEvent[];
 }
+
+/** POST /v1/aegis/ticket: short-lived signed ticket for the SSE feed. */
+export interface TicketResponse {
+  ticket: string;
+  expires_in: number;
+}

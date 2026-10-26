@@ -90,7 +90,7 @@ AEGIS_DEMO_TOKEN=change-this-demo-secret
 NEXT_PUBLIC_AEGIS_TOKEN=change-this-demo-secret
 ```
 
-The token protects chat, stats, events, Wire Tap and seed endpoints. The dashboard uses a query parameter only for its browser-native SSE connection; use a private network or an authenticated gateway for real deployments.
+The token protects chat, stats, events, Wire Tap and seed endpoints. Because a browser-native SSE connection cannot send an Authorization header, the dashboard exchanges the token for a 60-second signed ticket at `POST /v1/aegis/ticket` and puts only that ticket in the SSE query string. Use a private network or an authenticated gateway for real deployments.
 
 ### 5. Run the demo agent
 

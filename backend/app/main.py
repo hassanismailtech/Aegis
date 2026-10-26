@@ -35,6 +35,7 @@ from app.telemetry import (
     seed_events,
     stats as telemetry_stats,
 )
+from app.tickets import TICKET_TTL_SECONDS, TicketSigner
 from app.upstream import Upstream, outbound_body
 
 WIRETAP_TTL_SECONDS = 600
@@ -48,6 +49,9 @@ def build_upstream() -> Upstream:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.tenants = load_keys(settings.aegis_keys_file)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    app.state.tickets = TicketSigner.from_settings(
+        settings.aegis_ticket_secret or settings.aegis_demo_token
+    )
     app.state.ner = await warm_ner()  # PRD 5.2: built and warmed in lifespan
     app.state.upstream = build_upstream()
     yield
@@ -146,8 +150,6 @@ def _authorized(request: Request) -> bool:
     supplied = request.headers.get("X-Aegis-Demo-Token")
     if supplied is None and request.headers.get("Authorization", "").startswith("Bearer "):
         supplied = request.headers["Authorization"][7:]
-    if supplied is None:
-        supplied = request.query_params.get("access_token")
     return supplied is not None and hmac.compare_digest(supplied, expected)
 
 
@@ -369,10 +371,23 @@ async def wiretap(request_id: str, request: Request) -> Response:
     return JSONResponse(content=json.loads(raw))
 
 
+@app.post("/v1/aegis/ticket")
+async def issue_ticket(request: Request) -> Response:
+    """Exchange the deployment token for a short-lived SSE ticket."""
+    if not _authorized(request):
+        return _auth_error()
+    ticket, _ = request.app.state.tickets.issue()
+    return JSONResponse(
+        {"ticket": ticket, "expires_in": TICKET_TTL_SECONDS},
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/v1/aegis/events")
 async def events(request: Request) -> StreamingResponse:
     """Live Telemetry Events as SSE (PRD 5.5): event name `telemetry`, heartbeats."""
-    if not _authorized(request):
+    ticket = request.query_params.get("ticket", "")
+    if not _authorized(request) and not request.app.state.tickets.verify(ticket):
         return _auth_error()
 
     async def stream() -> AsyncIterator[bytes]:

@@ -1,4 +1,9 @@
-import type { SeedResponse, Stats, WireTap } from "@/lib/types";
+import type {
+  SeedResponse,
+  Stats,
+  TicketResponse,
+  WireTap,
+} from "@/lib/types";
 
 export const AEGIS_URL = (
   process.env.NEXT_PUBLIC_AEGIS_URL ?? "http://localhost:8000"
@@ -28,6 +33,18 @@ export function fetchWireTap(requestId: string): Promise<WireTap> {
   return getJson<WireTap>(
     `/v1/aegis/wiretap/${encodeURIComponent(requestId)}`,
   );
+}
+
+export async function fetchTicket(): Promise<string> {
+  const response = await fetch(`${AEGIS_URL}/v1/aegis/ticket`, {
+    method: "POST",
+    cache: "no-store",
+    headers: aegisHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(`Aegis ticket returned ${response.status}`);
+  }
+  return ((await response.json()) as TicketResponse).ticket;
 }
 
 export async function seedDemoData(): Promise<SeedResponse> {

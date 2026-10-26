@@ -98,6 +98,14 @@
 - The `aegis` logger is set to INFO for the test session by `conftest.py`, which attaches an in-memory capture handler. The final log test is moved to the end of collection, so it inspects every line produced by `test_no_leak`, `test_roundtrip` and the rest of the suite against all 35 planted values plus roundtrip PII and demo/key credentials. No log file or persistent store is added.
 - Structured request logging is separate from Telemetry Events: logs are process-local operational output, while Telemetry remains the Redis-backed dashboard contract.
 
+### Phase 0 task 4: short-lived SSE tickets
+
+- `POST /v1/aegis/ticket` exchanges the existing demo/deployment token for a stateless HMAC-SHA256 ticket with a 60-second TTL (`v`, `iat`, `exp` claims). The ticket is signed, not encrypted, and contains no tenant id, Session id or request text.
+- The signing secret is `AEGIS_TICKET_SECRET` when set, otherwise `AEGIS_DEMO_TOKEN`, otherwise an ephemeral random secret per process for local development. The ticket is therefore not portable across replicas unless a shared secret is configured.
+- Ticket issuance uses the same `_authorized` guard as the dashboard's other operational endpoints, not the per-tenant chat keys. Per-tenant keys deliberately cannot mint tickets for the global Telemetry feed.
+- The old `access_token` query parameter is removed from `_authorized`. SSE accepts either the demo token header or a valid `?ticket=`, and the ticket is accepted only by the SSE route; stats, Wire Tap and seed still require headers.
+- The frontend requests a fresh ticket for every connect/reconnect attempt, so long-lived streams keep working and an expired ticket is never reused. Ticket values and the signing secret are never logged.
+
 ### Review hardening
 
 - Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.
