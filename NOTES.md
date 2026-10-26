@@ -73,6 +73,16 @@
 - README commands use `127.0.0.1` for local backend calls to avoid host proxy behavior observed on this Windows machine; the browser-facing URL remains `localhost:3000`.
 - README documents the current security boundary and intentionally excluded controls (authentication, TLS termination, rate limiting and tenant isolation) rather than presenting the prototype as production-compliant.
 
+### Phase 0 task 1: per-tenant API key auth
+
+- This task intentionally supersedes PRD section 4's auth exclusion: tenants and hashed keys now load from `AEGIS_KEYS_FILE`, and chat requires `Authorization: Bearer <aegis-key>` when it is set.
+- Keys file format is the requested JSON list of `{tenant_id, key_sha256}`. Hashes must be 64 hex characters (case-insensitive); duplicate hashes may share a tenant for rotation, but one hash cannot belong to two tenants. A set-but-unreadable/invalid file aborts startup rather than silently disabling auth; an empty list is valid and rejects every key (fail-closed). The file is read once in the lifespan, not per request.
+- When `AEGIS_KEYS_FILE` is unset, auth is disabled to preserve the local quickstart and `aegis.auth` logs a startup warning. The warning contains no keys, hashes or request data.
+- Session id is `sha256(tenant_id + (X-Aegis-Session or random uuid))[:16]`, per the task, so the same client header under two tenants yields different Redis Session Maps. This replaces the old raw-header / sha256(Authorization) / `anon-` fallbacks. With auth disabled the tenant component is the empty string, so local sessions stay stable when a client sends a header and are per-request when it does not.
+- `AEGIS_DEMO_TOKEN` remains the optional guard for operational routes. On chat it is still enforced in local-dev mode (no keys file) to preserve existing behaviour, but a valid tenant key replaces it when per-tenant auth is active.
+- The tenant key is an Aegis credential, so when auth is active it is not forwarded Upstream: `UPSTREAM_API_KEY` or a separate `X-Upstream-Authorization` header supplies the Upstream credential. When auth is disabled, the old Authorization passthrough is unchanged.
+- Auth failures return HTTP 401 with `WWW-Authenticate: Bearer` and the existing OpenAI-shaped `aegis_unauthorized` error.
+
 ### Review hardening
 
 - Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.

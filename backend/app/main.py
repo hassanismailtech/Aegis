@@ -9,13 +9,14 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.auth import AuthError, load_keys, require_tenant
 from app.config import settings
 from app.errors import ScrubError, aegis_error
 from app.schemas import ChatRequest
@@ -43,6 +44,7 @@ def build_upstream() -> Upstream:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.tenants = load_keys(settings.aegis_keys_file)
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
     app.state.ner = await warm_ner()  # PRD 5.2: built and warmed in lifespan
     app.state.upstream = build_upstream()
@@ -66,6 +68,11 @@ async def openai_validation_error(_: Request, exc: RequestValidationError) -> JS
         status_code=400,
         content=aegis_error(f"Invalid request body: {exc}", "aegis_invalid_request"),
     )
+
+
+@app.exception_handler(AuthError)
+async def openai_auth_error(_: Request, __: AuthError) -> JSONResponse:
+    return _auth_error()
 
 
 def _wiretap_key(request_id: str) -> str:
@@ -121,15 +128,10 @@ def _sse_events(completion: dict[str, Any]) -> Iterator[bytes]:
     yield b"data: [DONE]\n\n"
 
 
-def _session_id(request: Request) -> str:
-    """Use an explicit session when supplied, otherwise isolate this request."""
-    header = request.headers.get("X-Aegis-Session")
-    if header:
-        return header
-    authorization = request.headers.get("Authorization")
-    if authorization:
-        return hashlib.sha256(authorization.encode()).hexdigest()[:16]
-    return "anon-" + uuid.uuid4().hex
+def _session_id(request: Request, tenant_id: str) -> str:
+    """Tenant-scoped Session id: sha256(tenant + client Session or uuid), 16 hex."""
+    client_session = request.headers.get("X-Aegis-Session") or uuid.uuid4().hex
+    return hashlib.sha256((tenant_id + client_session).encode()).hexdigest()[:16]
 
 
 def _authorized(request: Request) -> bool:
@@ -187,14 +189,18 @@ async def _blocked(
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(chat: ChatRequest, request: Request) -> Response:
-    if not _authorized(request):
+async def chat_completions(
+    chat: ChatRequest, request: Request, tenant_id: str = Depends(require_tenant)
+) -> Response:
+    # With keys configured, the tenant key is the chat credential; otherwise
+    # keep the existing optional AEGIS_DEMO_TOKEN guard (local-dev behaviour).
+    if not tenant_id and not _authorized(request):
         return _auth_error()
     request_id = "req_" + uuid.uuid4().hex
     headers = {"X-Aegis-Request-Id": request_id}
     state = request.app.state
     redis: Redis = state.redis
-    session = _session_id(request)
+    session = _session_id(request, tenant_id)
     session_map = SessionMap(redis, session)
 
     def reported(
@@ -252,9 +258,14 @@ async def chat_completions(chat: ChatRequest, request: Request) -> Response:
         )
 
     started = time.perf_counter()
-    status, data = await state.upstream.chat_completions(
-        outbound, request.headers.get("Authorization")
+    # The tenant key authenticates with Aegis and must never reach Upstream.
+    # BYOK clients can supply a separate Upstream key in X-Upstream-Authorization.
+    forwarded_authorization = (
+        request.headers.get("X-Upstream-Authorization")
+        if tenant_id
+        else request.headers.get("Authorization")
     )
+    status, data = await state.upstream.chat_completions(outbound, forwarded_authorization)
     upstream_ms = (time.perf_counter() - started) * 1000
     if status >= 400:
         await record_event(redis, reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=data))
