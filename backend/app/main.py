@@ -20,6 +20,7 @@ from app.auth import AuthError, load_keys, require_tenant
 from app.config import settings
 from app.errors import ScrubError, aegis_error
 from app.limits import BodySizeLimitMiddleware, consume_rate_limit
+from app.logs import log_request, log_telemetry
 from app.schemas import ChatRequest
 from app.session_map import SessionMap
 from app.scrubber import scrub_messages
@@ -74,6 +75,7 @@ async def openai_validation_error(_: Request, exc: RequestValidationError) -> JS
 
 @app.exception_handler(AuthError)
 async def openai_auth_error(_: Request, __: AuthError) -> JSONResponse:
+    log_request(status="rejected", http_status=401, reason="unauthorized")
     return _auth_error()
 
 
@@ -167,22 +169,21 @@ async def _blocked(
     message: str,
 ) -> JSONResponse:
     """503 fail-closed (PRD 8) plus a Telemetry Event with status scrub_blocked."""
-    await record_event(
-        redis,
-        make_event(
-            request_id=request_id,
-            session=session,
-            model=chat.model,
-            stream_requested=chat.stream,
-            entities={},
-            scrub_ms=scrub_ms,
-            reinject_ms=0.0,
-            upstream_ms=0.0,
-            unresolved=0,
-            status="scrub_blocked",
-            usage=None,
-        ),
+    event = make_event(
+        request_id=request_id,
+        session=session,
+        model=chat.model,
+        stream_requested=chat.stream,
+        entities={},
+        scrub_ms=scrub_ms,
+        reinject_ms=0.0,
+        upstream_ms=0.0,
+        unresolved=0,
+        status="scrub_blocked",
+        usage=None,
     )
+    await record_event(redis, event)
+    log_telemetry(event, 503)
     return JSONResponse(
         status_code=503,
         headers={"X-Aegis-Request-Id": request_id},
@@ -206,6 +207,13 @@ async def chat_completions(
     session_map = SessionMap(redis, session)
 
     if len(chat.messages) > settings.max_messages:
+        log_request(
+            request_id=request_id,
+            session=session,
+            status="rejected",
+            http_status=400,
+            reason="too_many_messages",
+        )
         return JSONResponse(
             status_code=400,
             headers=headers,
@@ -227,6 +235,13 @@ async def chat_completions(
         headers["X-RateLimit-Remaining"] = str(limit.remaining)
         if not limit.allowed:
             headers["Retry-After"] = str(limit.retry_after)
+            log_request(
+                request_id=request_id,
+                session=session,
+                status="rejected",
+                http_status=429,
+                reason="rate_limited",
+            )
             return JSONResponse(
                 status_code=429,
                 headers=headers,
@@ -302,7 +317,9 @@ async def chat_completions(
     status, data = await state.upstream.chat_completions(outbound, forwarded_authorization)
     upstream_ms = (time.perf_counter() - started) * 1000
     if status >= 400:
-        await record_event(redis, reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=data))
+        event = reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=data)
+        await record_event(redis, event)
+        log_telemetry(event, status)
         return JSONResponse(status_code=status, headers=headers, content=data)
 
     # Reinjector (PRD 5.4): tolerant Placeholder → original. A Redis outage here
@@ -321,10 +338,11 @@ async def chat_completions(
     overhead = round(round(scrub_ms, 1) + round(reinject_ms, 1), 1)
     headers["X-Aegis-Overhead-Ms"] = f"{overhead:.1f}"
     headers["X-Aegis-Unresolved"] = str(unresolved)
-    await record_event(
-        redis,
-        reported(response_status, scrub_ms, reinject_ms, upstream_ms, unresolved, entity_counts, data),
+    event = reported(
+        response_status, scrub_ms, reinject_ms, upstream_ms, unresolved, entity_counts, data
     )
+    await record_event(redis, event)
+    log_telemetry(event, status)
     if chat.stream:  # PRD 5.1: the reinjected completion feeds the pseudo-stream
         return StreamingResponse(_sse_events(data), media_type="text/event-stream", headers=headers)
     return JSONResponse(status_code=status, headers=headers, content=data)

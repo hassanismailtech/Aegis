@@ -92,6 +92,12 @@
 - A Redis failure during rate limiting fails closed with the existing 503 `aegis_state_unavailable` path. A denied request returns 429 `aegis_rate_limited` (`rate_limit_error`) with `Retry-After`; allowed tenant requests expose `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
 - The body-limit middleware is added before CORS in application setup so CORS remains the outermost middleware and can decorate 413 responses for browser clients.
 
+### Phase 0 task 3: structured logging
+
+- `aegis.request` emits one compact JSON line per completed/blocked/upstream-error proxy request with request id, hashed Session id, status, HTTP status, entity counts and timings. It deliberately omits model text, message content, tool arguments, headers and Session Map values; auth rejections log only the fixed reason and status.
+- The `aegis` logger is set to INFO for the test session by `conftest.py`, which attaches an in-memory capture handler. The final log test is moved to the end of collection, so it inspects every line produced by `test_no_leak`, `test_roundtrip` and the rest of the suite against all 35 planted values plus roundtrip PII and demo/key credentials. No log file or persistent store is added.
+- Structured request logging is separate from Telemetry Events: logs are process-local operational output, while Telemetry remains the Redis-backed dashboard contract.
+
 ### Review hardening
 
 - Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.
