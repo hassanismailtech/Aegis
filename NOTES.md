@@ -83,6 +83,15 @@
 - The tenant key is an Aegis credential, so when auth is active it is not forwarded Upstream: `UPSTREAM_API_KEY` or a separate `X-Upstream-Authorization` header supplies the Upstream credential. When auth is disabled, the old Authorization passthrough is unchanged.
 - Auth failures return HTTP 401 with `WWW-Authenticate: Bearer` and the existing OpenAI-shaped `aegis_unauthorized` error.
 
+### Phase 0 task 2: request limits and rate limiting
+
+- Limits are configurable through `MAX_BODY_BYTES` (default 1 MiB), `MAX_MESSAGES` (default 200), `RATE_LIMIT_CAPACITY` (default 60-token burst) and `RATE_LIMIT_REFILL_PER_SECOND` (default 1 token/s).
+- Body size is enforced in ASGI middleware before FastAPI parses the body, including chunked bodies; the response is 413 `aegis_request_too_large` in the OpenAI error shape. The middleware buffers only up to the configured limit and replays a bounded body to the app, preserving SSE disconnect detection.
+- Too many messages returns 400 `aegis_too_many_messages` rather than 413, because the body itself may be within the byte limit. Message-count rejection happens before a rate-limit token is spent.
+- Rate limiting is a Redis token bucket keyed by a SHA-256 of the tenant id, so one tenant's bucket cannot collide with another's or expose the raw id in a Redis key. The Lua script uses Redis TIME, refills lazily and sets a TTL long enough to refill the bucket. Local-dev mode has no tenant, so it skips rate limiting to preserve the quickstart behaviour.
+- A Redis failure during rate limiting fails closed with the existing 503 `aegis_state_unavailable` path. A denied request returns 429 `aegis_rate_limited` (`rate_limit_error`) with `Retry-After`; allowed tenant requests expose `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+- The body-limit middleware is added before CORS in application setup so CORS remains the outermost middleware and can decorate 413 responses for browser clients.
+
 ### Review hardening
 
 - Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.

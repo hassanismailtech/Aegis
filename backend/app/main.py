@@ -19,6 +19,7 @@ from redis.exceptions import RedisError
 from app.auth import AuthError, load_keys, require_tenant
 from app.config import settings
 from app.errors import ScrubError, aegis_error
+from app.limits import BodySizeLimitMiddleware, consume_rate_limit
 from app.schemas import ChatRequest
 from app.session_map import SessionMap
 from app.scrubber import scrub_messages
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
@@ -202,6 +204,38 @@ async def chat_completions(
     redis: Redis = state.redis
     session = _session_id(request, tenant_id)
     session_map = SessionMap(redis, session)
+
+    if len(chat.messages) > settings.max_messages:
+        return JSONResponse(
+            status_code=400,
+            headers=headers,
+            content=aegis_error(
+                f"Too many messages: limit {settings.max_messages}.",
+                "aegis_too_many_messages",
+            ),
+        )
+
+    if tenant_id:
+        try:
+            limit = await consume_rate_limit(redis, tenant_id)
+        except RedisError:
+            return await _blocked(
+                redis, request_id, session, chat, 0.0,
+                "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
+            )
+        headers["X-RateLimit-Limit"] = str(settings.rate_limit_capacity)
+        headers["X-RateLimit-Remaining"] = str(limit.remaining)
+        if not limit.allowed:
+            headers["Retry-After"] = str(limit.retry_after)
+            return JSONResponse(
+                status_code=429,
+                headers=headers,
+                content=aegis_error(
+                    f"Rate limit exceeded; retry after {limit.retry_after} s.",
+                    "aegis_rate_limited",
+                    err_type="rate_limit_error",
+                ),
+            )
 
     def reported(
         status: str,

@@ -1,5 +1,6 @@
 """Environment for Aegis: every variable in PRD 7.5, loaded from .env."""
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +20,10 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     aegis_demo_token: str = ""
     aegis_keys_file: str = ""
+    max_body_bytes: int = Field(default=1_048_576, ge=1)
+    max_messages: int = Field(default=200, ge=1)
+    rate_limit_capacity: int = Field(default=60, ge=1)
+    rate_limit_refill_per_second: float = Field(default=1.0, gt=0)
 
 
 settings = Settings()
