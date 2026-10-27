@@ -1,6 +1,39 @@
+name: aegis
+
 services:
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mock-upstream:
+    build:
+      context: ./backend
+      target: mock
+    ports:
+      - "9000:9000"
+
+  aegis:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:-http://mock-upstream:9000/v1}
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
+      UPSTREAM_MODEL_OVERRIDE: ${UPSTREAM_MODEL_OVERRIDE:-}
+      AEGIS_DEMO_TOKEN: ${AEGIS_DEMO_TOKEN:-}
+      AEGIS_TICKET_SECRET: ${AEGIS_TICKET_SECRET:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mock-upstream:
+        condition: service_healthy

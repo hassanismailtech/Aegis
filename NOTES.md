@@ -106,6 +106,34 @@
 - The old `access_token` query parameter is removed from `_authorized`. SSE accepts either the demo token header or a valid `?ticket=`, and the ticket is accepted only by the SSE route; stats, Wire Tap and seed still require headers.
 - The frontend requests a fresh ticket for every connect/reconnect attempt, so long-lived streams keep working and an expired ticket is never reused. Ticket values and the signing secret are never logged.
 
+### Phase 1 task 1: Dockerfile and compose
+
+- CPU-only torch is enforced in `pyproject.toml` by declaring `torch` as a direct dependency and pinning it to the explicit `pytorch-cpu` index. `uv lock --upgrade-package torch` then removed the Linux CUDA/NVIDIA/triton packages from `uv.lock`; the image never installs them.
+- The image warms the configured GLiNER model during the build (`get_ner().warm()`), so the build fails if the model cannot load. Runtime sets `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` so startup uses only the baked cache.
+- `libgomp1` is the only extra runtime system package; the CPU torch wheel needs it. Healthchecks use the Python standard library instead of installing `curl`.
+- `GET /readyz` is unauthenticated like `/healthz`; it pings Redis with a 2-second timeout and requires `app.state.ner.ready` when `NER_ENABLED=true`. `NER_ENABLED=false` makes the NER check pass by design.
+- Compose builds both `aegis` and `mock-upstream` from the same backend image. The mock Upstream overrides the image healthcheck to poll its own `/_tap` endpoint on :9000; otherwise the image's `/readyz` healthcheck would target the wrong port.
+- Compose fixes `REDIS_URL` to the `redis` service and interpolates only the optional Upstream and demo-token values from a repository-root `.env`. With no `.env`, all defaults still work. Redis and mock-upstream ports are published for host-side tests and debugging.
+- The frontend is not a compose service (the task names only aegis, redis and mock-upstream); the README keeps the dashboard as a separate `npm run dev` step.
+- `backend/Dockerfile` also has a `mock` target for the mock Upstream. It reuses the builder venv and scripts but skips the model bake, so a clean compose build downloads the GLiNER model once instead of once per service. The `mock` target has its own `/_tap` healthcheck; the `runtime` target keeps the required `/readyz` healthcheck.
+- The builder uses a BuildKit cache mount for uv downloads. It does not cache the Hugging Face model across builds: the model cache must remain in the final image layer to be baked in.
+- Docker Desktop is now available on this machine; the Step 1 note that it was unavailable is historical. The local verification used Docker Desktop's Linux engine.
+
+### Phase 1 task 2: GHCR publish workflow
+
+- `.github/workflows/publish.yml` builds the `runtime` target for `linux/amd64` and `linux/arm64` on pushes to `main`, `v*` tags and manual dispatch. It publishes `ghcr.io/<owner>/<repo>` with branch, tag, SHA and `latest` tags via `docker/metadata-action`.
+- The workflow uses `GITHUB_TOKEN` with `packages: write`; no extra registry secret is required. It does not run tests (not part of this task) and publishes only the Proxy image, not the mock target.
+- The 120-minute job timeout covers QEMU arm64 builds plus the build-time GLiNER warm-up. The PyTorch CPU index has a cp312 `manylinux_2_28_aarch64` wheel for the pinned torch version, so the arm64 build uses the same CPU-only resolution.
+
+### Phase 1 task 3: aegis doctor CLI
+
+- Added a `project.scripts` entry point `aegis = "app.cli:main"` and a Hatchling build backend so `uv run aegis doctor` works from the backend project. Hatchling is a build-time dependency only, MIT licensed; the Docker builder keeps `--no-install-project`, so the runtime image does not include Hatchling. The runtime image gets a small `/usr/local/bin/aegis` wrapper that runs `python -m app.cli`.
+- The builder also builds the project wheel and copies only its `aegis-*.dist-info` into the runtime venv. This makes `aegis doctor` report the real Aegis version inside the image instead of `unknown`; the application code still runs from `/app`. The metadata layer sits after the model-bake layer, so changing the version does not re-download the model.
+- `aegis doctor` checks Redis with a 3-second connect/read timeout, warms the GLiNER model off the event loop when `NER_ENABLED=true`, and probes the Upstream base URL with a 3-second `httpx` GET. Any HTTP response counts as reachable; the check is connectivity, not an inference call.
+- Doctor prints Python, Aegis, FastAPI, Pydantic, redis-py, httpx, torch, transformers and GLiNER versions plus three `ok`/`FAIL` lines. It exits 1 if any check fails, 0 otherwise. `NER_ENABLED=false` reports the model as intentionally disabled and still exits 0.
+- URLs are reduced to scheme/host/port/path before printing, so credentials embedded in `REDIS_URL` or `UPSTREAM_BASE_URL` never appear in terminal output. Exceptions are reduced to a generic status line; no request text, keys or headers are printed.
+- Tests in `backend/tests/test_doctor.py` cover credential stripping, success and failure exit codes, the required subcommand and the disabled-NER path. The real Redis/model/Upstream checks are not exercised in unit tests to keep the suite offline and fast.
+
 ### Review hardening
 
 - Literal inbound Placeholder-lookalikes are neutralized before Scrubber detection, preventing a caller from addressing another request's Session Map entry.

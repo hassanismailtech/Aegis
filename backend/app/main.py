@@ -1,5 +1,6 @@
 """Aegis Proxy (Step 4): Scrubber → Wire Tap → Upstream → Reinjector → Telemetry."""
 
+import asyncio
 import hashlib
 import hmac
 import json
@@ -90,6 +91,41 @@ def _wiretap_key(request_id: str) -> str:
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz(request: Request) -> Response:
+    """Ready only when Redis answers and, if enabled, the NER model is warm."""
+    ner = getattr(request.app.state, "ner", None)
+    ner_ready = not settings.ner_enabled or bool(getattr(ner, "ready", False))
+    try:
+        redis_ready = bool(
+            await asyncio.wait_for(request.app.state.redis.ping(), timeout=2.0)
+        )
+    except (RedisError, ConnectionError, asyncio.TimeoutError):
+        redis_ready = False
+    if redis_ready and ner_ready:
+        return JSONResponse(
+            {
+                "status": "ready",
+                "redis": "ok",
+                "ner": "warm" if settings.ner_enabled else "disabled",
+            }
+        )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "not_ready",
+            "redis": "ok" if redis_ready else "unavailable",
+            "ner": (
+                "warm"
+                if settings.ner_enabled and ner_ready
+                else "disabled"
+                if not settings.ner_enabled
+                else "not_warm"
+            ),
+        },
+    )
 
 
 def _sse_events(completion: dict[str, Any]) -> Iterator[bytes]:

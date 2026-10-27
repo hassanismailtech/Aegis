@@ -39,40 +39,43 @@ Every request is handled as one session: messages, assistant tool-call arguments
 
 ## Quickstart
 
-Requirements: Python 3.12, [`uv`](https://docs.astral.sh/uv/), Node.js 20+, npm, and Docker Desktop.
+Requirements: Docker Desktop. The demo agent needs Python 3.12 and [`uv`](https://docs.astral.sh/uv/); the optional dashboard needs Node.js 20+ and npm.
 
-### 1. Start Redis
+### 1. Start the stack
 
-```powershell
-docker compose up -d
-```
-
-Redis is deliberately ephemeral: the compose service disables snapshots and AOF and has no volume.
-
-### 2. Install backend dependencies and start the mock Upstream
+From the repository root:
 
 ```powershell
-cd backend
-uv sync
-uv run python scripts/mock_upstream.py
+docker compose up --build
 ```
 
-Leave that process running. It listens on `http://127.0.0.1:9000`.
+This builds the backend image with CPU-only torch and the GLiNER model baked in, then starts:
 
-### 3. Start Aegis
+- `redis` on `127.0.0.1:6379` — ephemeral, with snapshots and AOF disabled and no volume.
+- `mock-upstream` on `127.0.0.1:9000` — the offline OpenAI-compatible Upstream.
+- `aegis` on `127.0.0.1:8000` — the Proxy. Its healthcheck polls `/readyz`, which returns 200 only when Redis answers and, with `NER_ENABLED=true`, the NER model is warm.
+
+No environment variables are required. The first build downloads the model; later starts reuse it from the image. Wait for `aegis` to report healthy (`docker compose ps`).
+
+Check the running stack and print versions with:
+
+```powershell
+docker compose exec aegis aegis doctor
+```
+
+### 2. Run the demo agent
 
 In another terminal:
 
 ```powershell
-cd backend
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+uv run --project backend python demo/agent.py
 ```
 
-The first start may download and warm the configured GLiNER model. The proxy listens on `http://127.0.0.1:8000`.
+The demo prints two labeled panels. **AGENT SAW** contains the real customer values after reinjection. **UPSTREAM SAW** is loaded from the Wire Tap and contains Placeholders only.
 
-### 4. Start the dashboard
+### 3. Start the dashboard
 
-In another terminal:
+The compose stack is backend-only. In another terminal:
 
 ```powershell
 cd frontend
@@ -83,7 +86,7 @@ npm run dev
 
 Open `http://localhost:3000`. Select **Seed demo data** for an immediate synthetic view, or leave the dashboard open while the agent runs.
 
-For a shared demo host, set the same optional access token in both services:
+For a shared demo host, set the same optional access token in the repository-root `.env` used by compose and in the dashboard environment:
 
 ```dotenv
 AEGIS_DEMO_TOKEN=change-this-demo-secret
@@ -92,17 +95,7 @@ NEXT_PUBLIC_AEGIS_TOKEN=change-this-demo-secret
 
 The token protects chat, stats, events, Wire Tap and seed endpoints. Because a browser-native SSE connection cannot send an Authorization header, the dashboard exchanges the token for a 60-second signed ticket at `POST /v1/aegis/ticket` and puts only that ticket in the SSE query string. Use a private network or an authenticated gateway for real deployments.
 
-### 5. Run the demo agent
-
-In another terminal:
-
-```powershell
-uv run --project backend python demo/agent.py
-```
-
-The demo prints two labeled panels. **AGENT SAW** contains the real customer values after reinjection. **UPSTREAM SAW** is loaded from the Wire Tap and contains Placeholders only.
-
-### 6. Run the leak test
+### 4. Run the leak test
 
 ```powershell
 cd backend
@@ -113,7 +106,7 @@ The report writes `aegis:leaktest` in Redis so the dashboard can show the latest
 
 ## Switching to a real Upstream
 
-Copy `.env.example` to `backend/.env` and change only the Upstream settings:
+Copy `.env.example` to `.env` at the repository root and change only the Upstream settings:
 
 ```dotenv
 UPSTREAM_BASE_URL=https://api.openai.com/v1
@@ -121,7 +114,7 @@ UPSTREAM_API_KEY=sk-...
 UPSTREAM_MODEL_OVERRIDE=
 ```
 
-The proxy forwards `UPSTREAM_API_KEY` when set; otherwise it forwards the caller's `Authorization` header. Never commit `.env`, API keys, or customer data. Keep the dashboard origin in `CORS_ORIGINS` and expose the proxy only behind your network's normal TLS and access controls.
+Compose forwards those three values into the `aegis` service. The proxy forwards `UPSTREAM_API_KEY` when set; otherwise it forwards the caller's `Authorization` header. Never commit `.env`, API keys, or customer data. Keep the dashboard origin in `CORS_ORIGINS` and expose the proxy only behind your network's normal TLS and access controls.
 
 ## Validation
 

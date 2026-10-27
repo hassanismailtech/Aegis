@@ -487,3 +487,45 @@ async def test_redis_failure_blocks_request(monkeypatch: pytest.MonkeyPatch) -> 
         tap = await client.get("/v1/aegis/wiretap/req_missing")
         assert tap.status_code == 404  # nothing was stored or sent
         assert len(mock_upstream_module._bodies) == bodies_before  # /_tap unchanged
+
+
+async def test_readyz_ready_when_redis_and_ner_are_up(client: httpx.AsyncClient) -> None:
+    response = await client.get("/readyz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "redis": "ok", "ner": "warm"}
+
+
+async def test_readyz_fails_when_redis_is_down(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def down(_: Redis) -> bool:
+        raise RedisError("simulated outage")
+
+    monkeypatch.setattr(Redis, "ping", down)
+    response = await client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "redis": "unavailable",
+        "ner": "warm",
+    }
+
+
+async def test_readyz_fails_when_ner_is_enabled_but_not_warm(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", True)
+    monkeypatch.setattr(aegis_app.state, "ner", None)
+    response = await client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["ner"] == "not_warm"
+
+
+async def test_readyz_skips_ner_when_disabled(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "ner_enabled", False)
+    monkeypatch.setattr(aegis_app.state, "ner", None)
+    response = await client.get("/readyz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "redis": "ok", "ner": "disabled"}
