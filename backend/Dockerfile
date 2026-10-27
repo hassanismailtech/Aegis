@@ -16,6 +16,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Build the project wheel for its metadata only. The runtime runs the code from
 # /app, but `aegis doctor` needs the distribution metadata to print its version.
 COPY app ./app
+COPY packs ./packs
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv build --wheel --out-dir /dist \
     && uv pip install --no-deps --target /meta /dist/*.whl \
@@ -63,6 +64,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 WORKDIR /app
 COPY app ./app
+COPY packs ./packs
 COPY data ./data
 COPY scripts ./scripts
 

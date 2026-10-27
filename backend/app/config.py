@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ner_timeout_ms: int = 2000
     fee_usd_per_1k_tokens: float = 0.001
     cors_origins: str = "http://localhost:3000"
+    detector_packs: list[str] = ["ng"]
     aegis_demo_token: str = ""
     aegis_keys_file: str = ""
     aegis_ticket_secret: str = ""

@@ -14,16 +14,17 @@ import asyncio
 import json
 import re
 import time
+from collections.abc import Sequence
 from typing import Any
 
 from app.config import settings
+from app.detectors import Detector, Span, load_detectors
 from app.errors import ScrubError
 from app.schemas import EntityType
 from app.session_map import SessionMap
-from .gazetteer import find_persons as gazetteer_persons
 from .ner import CHUNK_CHARS, GlinerNer
-from .patterns import Span, pattern_spans
 
+_PACK_DETECTORS: tuple[Detector, ...] = load_detectors(tuple(settings.detector_packs))
 _PRIORITY = {
     EntityType.PHONE: 0,
     EntityType.EMAIL: 1,
@@ -63,16 +64,24 @@ def ner_leftover(text: str, spans: list[Span]) -> list[str]:
     return [blanked[cut : cut + CHUNK_CHARS] for cut in range(0, len(blanked), CHUNK_CHARS)]
 
 
-async def _detect(text: str, ner: GlinerNer | None) -> list[Span]:
-    """All Scrubber spans for one text: patterns, gazetteer, (fallback) NER."""
-    spans = pattern_spans(text)
-    spans.extend(gazetteer_persons(text))
-    if ner is not None and settings.ner_enabled:
-        all_chunks = ner_leftover(text, spans)
-        chunks = [(cut * CHUNK_CHARS, chunk) for cut, chunk in enumerate(all_chunks) if chunk.strip()]
+class _NerPersonDetector:
+    """GLiNER PERSON layer over text left by earlier detectors (PRD 9)."""
+
+    def __init__(self, ner: GlinerNer | None) -> None:
+        self._ner = ner
+
+    async def detect(self, text: str, prior: Sequence[Span]) -> list[Span]:
+        if self._ner is None or not settings.ner_enabled:
+            return []
+        all_chunks = ner_leftover(text, list(prior))
+        chunks = [
+            (cut * CHUNK_CHARS, chunk)
+            for cut, chunk in enumerate(all_chunks)
+            if chunk.strip()
+        ]
         try:
             ner_spans = await asyncio.wait_for(
-                asyncio.to_thread(ner.find_persons, [chunk for _, chunk in chunks]),
+                asyncio.to_thread(self._ner.find_persons, [chunk for _, chunk in chunks]),
                 settings.ner_timeout_ms / 1000,
             )
         except TimeoutError:
@@ -81,11 +90,20 @@ async def _detect(text: str, ner: GlinerNer | None) -> list[Span]:
             raise
         except Exception as exc:  # noqa: BLE001 — fail closed without leaking inputs
             raise ScrubError("NER layer failed.") from exc
+        spans: list[Span] = []
         for (base, _), found in zip(chunks, ner_spans, strict=True):
             spans.extend(
                 Span(span.start + base, span.end + base, span.type, span.text)
                 for span in found
             )
+        return spans
+
+
+async def _detect(text: str, ner: GlinerNer | None) -> list[Span]:
+    """All Scrubber spans for one text: configured pack layers, then NER."""
+    spans: list[Span] = []
+    for detector in (*_PACK_DETECTORS, _NerPersonDetector(ner)):
+        spans.extend(await detector.detect(text, spans))
     return merge_spans(spans)
 
 

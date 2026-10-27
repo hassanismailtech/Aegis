@@ -16,8 +16,8 @@ import threading
 from typing import Any
 
 from app.config import settings
+from app.detectors.base import Span
 from app.errors import ScrubError
-from .patterns import Span
 from app.schemas import EntityType
 
 LABEL = "person"

@@ -142,3 +142,12 @@
 - Pseudo-streaming now emits tool-call deltas and a `tool_calls` finish reason.
 - Bare ten-digit local phone patterns require phone context; prefixed forms remain rule-detected.
 - Latest benchmark: pattern p50/p95 is 0.18/0.68 ms for 60 words and 1.71/2.86 ms for 500 words; GLiNER p50/p95 is 428.6/1270.6 ms and 2651.3/3730.9 ms respectively. Deliberate leetspeak and spelled-out digit evasion remain an explicit limitation.
+
+### Detector packs (Task 1)
+
+- Detection now composes through `app.detectors.base.Detector`: an async `detect(text, prior)` layer returning `Span`s. `prior` is the spans found by earlier layers; pack detectors ignore it, and the GLiNER detector uses it to preserve the PRD 9 fallback (NER only on text left after pattern + gazetteer). Span moved to `app/detectors/base.py`.
+- `DETECTOR_PACKS` is an ordered JSON list in config (default `["ng"]`, env example `DETECTOR_PACKS=["ng"]`). Each name maps to `backend/packs/<name>/__init__.py`, which must expose `detectors()`. Names are restricted to lowercase snake case before import; a bad name or missing pack fails at Scrubber import/startup rather than at request time. Pack detector instances are loaded once per process.
+- The Nigerian pack holds the unchanged regex patterns (`packs/ng/patterns.py`) and gazetteer (`packs/ng/gazetteer.py`); no regex, context window or threshold was edited. `data/ng_names.json` stays at `backend/data/` per PRD 10.
+- `app/scrubber/patterns.py` and `app/scrubber/gazetteer.py` are compatibility re-export shims so existing test imports (`pattern_spans`, `find_persons`, `Span`) and scripts keep working unchanged. The implementation no longer lives there.
+- GLiNER remains `app/scrubber/ner.py` (not Nigeria-specific) and is appended after configured pack detectors; its `NER_ENABLED`, timeout, model and threshold behaviour is unchanged.
+- Packaging follows the new module: the Hatchling wheel includes both `app` and `packs`, and both Dockerfile build stages copy `packs/`.

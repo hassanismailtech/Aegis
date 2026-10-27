@@ -16,9 +16,9 @@ import time
 
 from app.config import settings
 from app.scrubber import ner_leftover
-from app.scrubber.gazetteer import find_persons as gazetteer_persons
 from app.scrubber.ner import get_ner, warm_ner
-from app.scrubber.patterns import pattern_spans
+from packs.ng.gazetteer import find_persons as gazetteer_persons
+from packs.ng.patterns import pattern_spans
 
 RUNS = 100
 NER_BUDGET_MS = 250.0
