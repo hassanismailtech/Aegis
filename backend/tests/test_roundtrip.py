@@ -1,4 +1,4 @@
-"""Round-trip tests (Step 2): passthrough, pseudo-stream, error mapping, Wire Tap.
+"""Round-trip tests (Step 2): passthrough, streaming, error mapping, Wire Tap.
 
 Aegis runs behind httpx.ASGITransport; its Upstream client points at the mock
 Upstream ASGI app (same transport). ASGITransport does not enforce httpx
@@ -164,9 +164,16 @@ async def test_stream_true_preserves_tool_call_delta(
     )
     events = [e for e in response.text.split("\n\n") if e.strip()]
     chunks = [json.loads(e.removeprefix("data: ")) for e in events[:-1]]
-    tool_delta = chunks[1]["choices"][0]["delta"]["tool_calls"][0]
-    assert tool_delta["function"]["name"] == "lookup_customer"
-    assert chunks[2]["choices"][0]["finish_reason"] == "tool_calls"
+    calls = [
+        call
+        for chunk in chunks
+        for choice in chunk["choices"]
+        for call in choice["delta"].get("tool_calls", [])
+    ]
+    assert any(call["function"].get("name") == "lookup_customer" for call in calls)
+    arguments = "".join(call["function"].get("arguments", "") for call in calls)
+    assert json.loads(arguments) == {"name": "Ada Obi"}
+    assert chunks[-1]["choices"][0]["finish_reason"] == "tool_calls"
 
 
 async def test_client_placeholder_cannot_reinject_session_value(

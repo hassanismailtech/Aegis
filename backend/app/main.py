@@ -6,10 +6,11 @@ import hmac
 import json
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,6 +29,12 @@ from app.session_map import SessionMap
 from app.scrubber import scrub_messages
 from app.scrubber.ner import warm_ner
 from app.reinjector import Reinjector
+from app.streaming import (
+    AnthropicStreamRewriter,
+    OpenAIStreamRewriter,
+    format_sse,
+    sse_events,
+)
 from app.telemetry import (
     HEARTBEAT_SECONDS,
     PUBSUB_CHANNEL,
@@ -132,50 +139,6 @@ async def readyz(request: Request) -> Response:
             ),
         },
     )
-
-
-def _sse_events(completion: dict[str, Any]) -> Iterator[bytes]:
-    """Pseudo-stream with content and tool-call deltas, then [DONE]."""
-
-    def chunk(delta: dict[str, Any], finish_reason: str | None) -> bytes:
-        event = {
-            "id": completion["id"],
-            "object": "chat.completion.chunk",
-            "created": completion.get("created"),
-            "model": completion["model"],
-            "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
-        }
-        return b"data: " + json.dumps(event).encode() + b"\n\n"
-
-    choice = completion["choices"][0]
-    message = choice["message"]
-    delta: dict[str, Any] = {"role": message.get("role", "assistant")}
-    if message.get("content"):
-        delta["content"] = message["content"]
-    if message.get("tool_calls"):
-        yield chunk(delta, None)
-    elif delta.keys() != {"role"}:
-        yield chunk(delta, None)
-    for index, call in enumerate(message.get("tool_calls") or []):
-        function = call.get("function") or {}
-        yield chunk(
-            {
-                "tool_calls": [
-                    {
-                        "index": index,
-                        "id": call.get("id"),
-                        "type": call.get("type", "function"),
-                        "function": {
-                            "name": function.get("name"),
-                            "arguments": function.get("arguments", ""),
-                        },
-                    }
-                ]
-            },
-            None,
-        )
-    yield chunk({}, choice.get("finish_reason") or ("tool_calls" if message.get("tool_calls") else "stop"))
-    yield b"data: [DONE]\n\n"
 
 
 def _session_id(request: Request, tenant_id: str) -> str:
@@ -358,7 +321,7 @@ async def chat_completions(
 
     outbound = outbound_body(chat.model_dump())
     outbound["messages"] = messages
-    outbound["stream"] = False  # Upstream is always called non-streaming; stream:true is pseudo-streamed.
+    outbound["stream"] = chat.stream
     try:
         # Wire Tap = exact outbound body, before Upstream: Redis down blocks fail-closed (PRD 8).
         await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
@@ -376,6 +339,90 @@ async def chat_completions(
         if tenant_id
         else request.headers.get("Authorization")
     )
+
+    if chat.stream:
+        # Load the Session Map before opening the stream: the response headers
+        # are already sent by the time the first chunk is rewritten.
+        map_started = time.perf_counter()
+        try:
+            forward = await session_map.forward_map()
+        except RedisError:
+            forward = {}
+        reinject_ms = (time.perf_counter() - map_started) * 1000
+        open_started = time.perf_counter()
+        status, result = await state.upstream.chat_completions_stream(
+            outbound, forwarded_authorization
+        )
+        upstream_ms = (time.perf_counter() - open_started) * 1000
+        if isinstance(result, dict):
+            event = reported(
+                "upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=result
+            )
+            await record_event(redis, event)
+            log_telemetry(event, status)
+            return JSONResponse(status_code=status, headers=headers, content=result)
+
+        rewriter = OpenAIStreamRewriter(forward)
+        stream_status = "ok"
+
+        async def relay() -> AsyncIterator[bytes]:
+            nonlocal reinject_ms, upstream_ms, stream_status
+            first = True
+            try:
+                async for event_name, raw in sse_events(result.aiter_lines()):
+                    if first:
+                        upstream_ms = (time.perf_counter() - open_started) * 1000
+                        first = False
+                    if raw == "[DONE]":
+                        work = time.perf_counter()
+                        flushed = rewriter.flush_all()
+                        reinject_ms += (time.perf_counter() - work) * 1000
+                        for chunk in flushed:
+                            yield format_sse(
+                                event_name, json.dumps(chunk, separators=(",", ":"))
+                            )
+                        yield format_sse(None, "[DONE]")
+                        break
+                    try:
+                        parsed = json.loads(raw)
+                    except ValueError:
+                        yield format_sse(event_name, raw)
+                        continue
+                    work = time.perf_counter()
+                    chunks = (
+                        rewriter.rewrite(parsed)
+                        if isinstance(parsed, dict)
+                        else [parsed]
+                    )
+                    reinject_ms += (time.perf_counter() - work) * 1000
+                    for chunk in chunks:
+                        yield format_sse(
+                            event_name, json.dumps(chunk, separators=(",", ":"))
+                        )
+            except httpx.HTTPError:
+                stream_status = "upstream_error"
+            finally:
+                await result.aclose()
+                if rewriter.unresolved:
+                    stream_status = "state_loss"
+                event = reported(
+                    stream_status,
+                    scrub_ms,
+                    reinject_ms,
+                    upstream_ms,
+                    rewriter.unresolved,
+                    entity_counts,
+                    {"usage": rewriter.usage},
+                )
+                await record_event(redis, event)
+                log_telemetry(event, 200)
+
+        headers["Cache-Control"] = "no-cache"
+        headers["X-Accel-Buffering"] = "no"
+        return StreamingResponse(
+            relay(), media_type="text/event-stream", headers=headers
+        )
+
     status, data = await state.upstream.chat_completions(outbound, forwarded_authorization)
     upstream_ms = (time.perf_counter() - started) * 1000
     if status >= 400:
@@ -405,8 +452,6 @@ async def chat_completions(
     )
     await record_event(redis, event)
     log_telemetry(event, status)
-    if chat.stream:  # PRD 5.1: the reinjected completion feeds the pseudo-stream
-        return StreamingResponse(_sse_events(data), media_type="text/event-stream", headers=headers)
     return JSONResponse(status_code=status, headers=headers, content=data)
 
 
@@ -414,14 +459,9 @@ async def chat_completions(
 async def messages(
     payload: MessagesRequest, request: Request, tenant_id: str = Depends(require_tenant)
 ) -> Response:
-    """Anthropic Messages API, non-streaming: same Scrubber/Reinjector pipeline."""
+    """Anthropic Messages API: same Scrubber/Reinjector pipeline, streaming included."""
     if not tenant_id and not _authorized(request):
         return _auth_error(anthropic=True)
-    if payload.stream:
-        return JSONResponse(
-            status_code=400,
-            content=anthropic_error("Streaming is not supported; send stream=false."),
-        )
     request_id = "req_" + uuid.uuid4().hex
     headers = {"X-Aegis-Request-Id": request_id}
     state = request.app.state
@@ -448,7 +488,7 @@ async def messages(
             limit = await consume_rate_limit(redis, tenant_id)
         except RedisError:
             return await _blocked(
-                redis, request_id, session, payload.model, False, 0.0,
+                redis, request_id, session, payload.model, payload.stream, 0.0,
                 "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
                 _anthropic_api_error,
             )
@@ -485,7 +525,7 @@ async def messages(
             request_id=request_id,
             session=session,
             model=payload.model,
-            stream_requested=False,
+            stream_requested=payload.stream,
             entities=entities or {},
             scrub_ms=scrub,
             reinject_ms=reinject,
@@ -505,27 +545,27 @@ async def messages(
         )
     except ScrubError:
         return await _blocked(
-            redis, request_id, session, payload.model, False,
+            redis, request_id, session, payload.model, payload.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_scrub_failed", "Scrubber failed; request blocked fail-closed.",
             _anthropic_api_error,
         )
     except RedisError:
         return await _blocked(
-            redis, request_id, session, payload.model, False,
+            redis, request_id, session, payload.model, payload.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
             _anthropic_api_error,
         )
     outbound = outbound_body(outbound)
-    outbound["stream"] = False
+    outbound["stream"] = payload.stream
     headers["X-Aegis-Entities"] = str(sum(entity_counts.values()))
     headers["X-Aegis-Overhead-Ms"] = f"{round(scrub_ms, 1):.1f}"
     try:
         await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
     except RedisError:
         return await _blocked(
-            redis, request_id, session, payload.model, False, scrub_ms,
+            redis, request_id, session, payload.model, payload.stream, scrub_ms,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
             _anthropic_api_error,
         )
@@ -538,6 +578,83 @@ async def messages(
         if tenant_id
         else request.headers.get("x-api-key")
     )
+
+    if payload.stream:
+        # As with OpenAI, resolve the Session Map before the stream starts.
+        map_started = time.perf_counter()
+        try:
+            forward = await session_map.forward_map()
+        except RedisError:
+            forward = {}
+        reinject_ms = (time.perf_counter() - map_started) * 1000
+        open_started = time.perf_counter()
+        status, result = await state.upstream.messages_stream(
+            outbound,
+            api_key=forwarded_api_key,
+            version=request.headers.get("anthropic-version"),
+            beta=request.headers.get("anthropic-beta"),
+        )
+        upstream_ms = (time.perf_counter() - open_started) * 1000
+        if isinstance(result, dict):
+            event = reported(
+                "upstream_error", scrub_ms, 0.0, upstream_ms, 0, response=result
+            )
+            await record_event(redis, event)
+            log_telemetry(event, status)
+            return JSONResponse(status_code=status, headers=headers, content=result)
+
+        rewriter = AnthropicStreamRewriter(forward)
+        stream_status = "ok"
+
+        async def relay() -> AsyncIterator[bytes]:
+            nonlocal reinject_ms, upstream_ms, stream_status
+            first = True
+            try:
+                async for event_name, raw in sse_events(result.aiter_lines()):
+                    if first:
+                        upstream_ms = (time.perf_counter() - open_started) * 1000
+                        first = False
+                    try:
+                        parsed = json.loads(raw)
+                    except ValueError:
+                        yield format_sse(event_name, raw)
+                        continue
+                    if not isinstance(parsed, dict):
+                        yield format_sse(event_name, raw)
+                        continue
+                    work = time.perf_counter()
+                    rewritten = rewriter.rewrite(event_name, parsed)
+                    reinject_ms += (time.perf_counter() - work) * 1000
+                    for kind, out in rewritten:
+                        yield format_sse(
+                            kind, json.dumps(out, separators=(",", ":"))
+                        )
+            except httpx.HTTPError:
+                stream_status = "upstream_error"
+            finally:
+                await result.aclose()
+                if rewriter.unresolved:
+                    stream_status = "state_loss"
+                elif rewriter.failed:
+                    stream_status = "upstream_error"
+                event = reported(
+                    stream_status,
+                    scrub_ms,
+                    reinject_ms,
+                    upstream_ms,
+                    rewriter.unresolved,
+                    entity_counts,
+                    {"usage": rewriter.usage()},
+                )
+                await record_event(redis, event)
+                log_telemetry(event, 200)
+
+        headers["Cache-Control"] = "no-cache"
+        headers["X-Accel-Buffering"] = "no"
+        return StreamingResponse(
+            relay(), media_type="text/event-stream", headers=headers
+        )
+
     status, data = await state.upstream.messages(
         outbound,
         api_key=forwarded_api_key,

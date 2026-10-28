@@ -10,13 +10,33 @@ import json
 import re
 import time
 import uuid
+from collections.abc import AsyncIterator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import JSONResponse, StreamingResponse
 
 app = FastAPI()
 _bodies: list[dict] = []
 
 _PLACEHOLDER = re.compile(r"\[\[[A-Z_]+_\d+\]\]")
+
+
+def _sse(event: str | None, data: dict | str) -> bytes:
+    prefix = f"event: {event}\n" if event else ""
+    payload = data if isinstance(data, str) else json.dumps(data)
+    return f"{prefix}data: {payload}\n\n".encode()
+
+
+def _split(text: str) -> list[str]:
+    """Split once around a Placeholder so both streaming protocols are exercised."""
+    at = text.find("[[")
+    if at == -1:
+        return [text]
+    return [
+        part
+        for part in (text[: at + 2], text[at + 2 : at + 5], text[at + 5 :])
+        if part
+    ]
 
 
 def _block_texts(block: object) -> list[str]:
@@ -166,8 +186,140 @@ def _message(model: str, content: list[dict], stop_reason: str, request: dict) -
     }
 
 
+def _openai_stream(model: str, message: dict, finish_reason: str, request: dict) -> StreamingResponse:
+    """True SSE stream: content/tool arguments split inside the first Placeholder."""
+    completion = _completion(model, message, finish_reason, request)
+    base = {key: completion[key] for key in ("id", "created", "model")}
+
+    def chunk(delta: dict, finish: str | None = None) -> dict:
+        return {
+            **base,
+            "object": "chat.completion.chunk",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+        }
+
+    async def events() -> AsyncIterator[bytes]:
+        calls = message.get("tool_calls") or []
+        if calls:
+            function = calls[0]["function"]
+            yield _sse(
+                None,
+                chunk(
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": calls[0]["id"],
+                                "type": calls[0]["type"],
+                                "function": {"name": function["name"], "arguments": ""},
+                            }
+                        ],
+                    }
+                ),
+            )
+            for part in _split(function["arguments"]):
+                yield _sse(
+                    None,
+                    chunk(
+                        {"tool_calls": [{"index": 0, "function": {"arguments": part}}]}
+                    ),
+                )
+        else:
+            for position, part in enumerate(_split(message.get("content") or "")):
+                delta = {"content": part}
+                if position == 0:
+                    delta["role"] = "assistant"
+                yield _sse(None, chunk(delta))
+        yield _sse(None, chunk({}, finish_reason))
+        yield _sse(None, "[DONE]")
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
+def _anthropic_stream(
+    model: str, content: list[dict], stop_reason: str, request: dict
+) -> StreamingResponse:
+    """True Messages SSE stream: text deltas and input_json_delta split by Placeholder."""
+    message = _message(model, content, stop_reason, request)
+
+    async def events() -> AsyncIterator[bytes]:
+        yield _sse(
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    **message,
+                    "content": [],
+                    "stop_reason": None,
+                    "usage": {**message["usage"], "output_tokens": 1},
+                },
+            },
+        )
+        for index, block in enumerate(content):
+            if block.get("type") == "text":
+                yield _sse(
+                    "content_block_start",
+                    {
+                        "type": "content_block_start",
+                        "index": index,
+                        "content_block": {"type": "text", "text": ""},
+                    },
+                )
+                for part in _split(block.get("text") or ""):
+                    yield _sse(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": index,
+                            "delta": {"type": "text_delta", "text": part},
+                        },
+                    )
+            else:
+                yield _sse(
+                    "content_block_start",
+                    {
+                        "type": "content_block_start",
+                        "index": index,
+                        "content_block": {
+                            "type": "tool_use",
+                            "id": block["id"],
+                            "name": block["name"],
+                            "input": {},
+                        },
+                    },
+                )
+                for part in _split(json.dumps(block.get("input") or {})):
+                    yield _sse(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
+                            "index": index,
+                            "delta": {
+                                "type": "input_json_delta",
+                                "partial_json": part,
+                            },
+                        },
+                    )
+            yield _sse(
+                "content_block_stop",
+                {"type": "content_block_stop", "index": index},
+            )
+        yield _sse(
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+                "usage": {"output_tokens": message["usage"]["output_tokens"]},
+            },
+        )
+        yield _sse("message_stop", {"type": "message_stop"})
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
 @app.post("/v1/chat/completions")
-async def chat_completions(body: dict) -> dict:
+async def chat_completions(body: dict) -> Response:
     _bodies.append(body)
     placeholders = _placeholders(body)
     model = body.get("model", "mock")
@@ -195,13 +347,21 @@ async def chat_completions(body: dict) -> dict:
                 }
             ],
         }
-        return _completion(model, message, "tool_calls", body)
-    target = placeholders[0] if placeholders else "(no placeholder)"
-    return _completion(model, {"role": "assistant", "content": f"Transfer initiated to {target}"}, "stop", body)
+        finish_reason = "tool_calls"
+    else:
+        target = placeholders[0] if placeholders else "(no placeholder)"
+        message = {
+            "role": "assistant",
+            "content": f"Transfer initiated to {target}",
+        }
+        finish_reason = "stop"
+    if body.get("stream"):
+        return _openai_stream(model, message, finish_reason, body)
+    return JSONResponse(content=_completion(model, message, finish_reason, body))
 
 
 @app.post("/v1/messages")
-async def messages(body: dict) -> dict:
+async def messages(body: dict) -> Response:
     _bodies.append(body)
     placeholders = _placeholders(body)
     model = body.get("model", "mock")
@@ -223,14 +383,14 @@ async def messages(body: dict) -> dict:
                 "input": _anthropic_tool_input(tool, placeholders),
             }
         ]
-        return _message(model, content, "tool_use", body)
-    target = placeholders[0] if placeholders else "(no placeholder)"
-    return _message(
-        model,
-        [{"type": "text", "text": f"Transfer initiated to {target}"}],
-        "end_turn",
-        body,
-    )
+        stop_reason = "tool_use"
+    else:
+        target = placeholders[0] if placeholders else "(no placeholder)"
+        content = [{"type": "text", "text": f"Transfer initiated to {target}"}]
+        stop_reason = "end_turn"
+    if body.get("stream"):
+        return _anthropic_stream(model, content, stop_reason, body)
+    return JSONResponse(content=_message(model, content, stop_reason, body))
 
 
 @app.get("/_tap")

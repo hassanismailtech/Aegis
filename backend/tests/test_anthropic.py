@@ -350,22 +350,9 @@ async def test_anthropic_adapter_scrubs_system_and_tool_results() -> None:
     }
 
 
-async def test_anthropic_stream_and_malformed_errors_are_anthropic_shaped(
+async def test_anthropic_malformed_error_is_anthropic_shaped(
     client: httpx.AsyncClient,
 ) -> None:
-    streamed = await client.post(
-        "/v1/messages",
-        json={
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 64,
-            "stream": True,
-            "messages": [{"role": "user", "content": "hello"}],
-        },
-    )
-    assert streamed.status_code == 400
-    assert streamed.json()["type"] == "error"
-    assert streamed.json()["error"]["type"] == "invalid_request_error"
-
     malformed = await client.post(
         "/v1/messages",
         content=b"{not json",
