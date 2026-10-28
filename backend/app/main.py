@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging as _logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -19,6 +20,7 @@ from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
 from app.anthropic_adapter import reinject_response, scrub_request, usage_tokens
+from app.audit import AuditError, AuditLog
 from app.auth import AuthError, load_keys, require_tenant
 from app.config import settings
 from app.errors import ScrubError, aegis_error, anthropic_error
@@ -50,17 +52,48 @@ from app.upstream import Upstream, outbound_body
 WIRETAP_TTL_SECONDS = 600
 
 
+_startup_logger = _logging.getLogger("aegis.startup")
+
+
+def _is_loopback(host: str) -> bool:
+    """True for 127.x.x.x, ::1, localhost, and the 0.0.0.0 default (listens locally too)."""
+    return host in ("127.0.0.1", "::1", "localhost", "0.0.0.0")
+
+
 def build_upstream() -> Upstream:
     return Upstream()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.tenants = load_keys(settings.aegis_keys_file)
+    tenants = load_keys(settings.aegis_keys_file)
+    auth_enabled = tenants is not None
+
+    # Startup guard: refuse non-loopback without auth unless AEGIS_INSECURE_DEV
+    if not _is_loopback(settings.bind_host) and not auth_enabled:
+        if not settings.aegis_insecure_dev:
+            raise RuntimeError(
+                "Refusing to start: BIND_HOST is not loopback and AEGIS_KEYS_FILE "
+                "is not set. Set AEGIS_KEYS_FILE for production, or "
+                "AEGIS_INSECURE_DEV=1 for local development."
+            )
+        _startup_logger.warning(
+            "AEGIS_INSECURE_DEV=1: running without authentication on a "
+            "non-loopback bind. Do not use this in production."
+        )
+
+    # Ticket secret: require a dedicated secret when auth is enabled
+    if auth_enabled and not settings.aegis_ticket_secret:
+        raise RuntimeError(
+            "AEGIS_TICKET_SECRET must be set when AEGIS_KEYS_FILE is configured. "
+            "Tickets cannot fall back to the demo token in authenticated mode."
+        )
+
+    ticket_secret = settings.aegis_ticket_secret or settings.aegis_demo_token
+    app.state.tenants = tenants
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    app.state.tickets = TicketSigner.from_settings(
-        settings.aegis_ticket_secret or settings.aegis_demo_token
-    )
+    app.state.tickets = TicketSigner.from_settings(ticket_secret)
+    app.state.audit = AuditLog(settings.audit_db_path)
     app.state.ner = await warm_ner()  # PRD 5.2: built and warmed in lifespan
     app.state.upstream = build_upstream()
     yield
@@ -170,8 +203,26 @@ def _auth_error(*, anthropic: bool = False) -> JSONResponse:
     )
 
 
+async def _emit(state: Any, event: TelemetryEvent, http_status: int) -> None:
+    """Record one event in Redis, logs, the audit chain and metrics.
+
+    Audit append failures are reported as a metadata-only log line and never
+    change the client response: the Upstream call may already have completed.
+    """
+    await record_event(state.redis, event)
+    log_telemetry(event, http_status)
+    try:
+        await state.audit.append(event)
+    except AuditError:
+        log_request(
+            request_id=event.request_id,
+            status="audit_error",
+            http_status=http_status,
+        )
+
+
 async def _blocked(
-    redis: Redis,
+    state: Any,
     request_id: str,
     session: str,
     model: str,
@@ -195,8 +246,7 @@ async def _blocked(
         status="scrub_blocked",
         usage=None,
     )
-    await record_event(redis, event)
-    log_telemetry(event, 503)
+    await _emit(state, event, 503)
     body = (
         error(message, code)
         if error is not None
@@ -305,13 +355,13 @@ async def chat_completions(
         )
     except ScrubError:
         return await _blocked(
-            redis, request_id, session, chat.model, chat.stream,
+            state, request_id, session, chat.model, chat.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_scrub_failed", "Scrubber failed; request blocked fail-closed.",
         )
     except RedisError:
         return await _blocked(
-            redis, request_id, session, chat.model, chat.stream,
+            state, request_id, session, chat.model, chat.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
         )
@@ -327,7 +377,7 @@ async def chat_completions(
         await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
     except RedisError:
         return await _blocked(
-            redis, request_id, session, chat.model, chat.stream, scrub_ms,
+            state, request_id, session, chat.model, chat.stream, scrub_ms,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
         )
 
@@ -358,8 +408,7 @@ async def chat_completions(
             event = reported(
                 "upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=result
             )
-            await record_event(redis, event)
-            log_telemetry(event, status)
+            await _emit(state, event, status)
             return JSONResponse(status_code=status, headers=headers, content=result)
 
         rewriter = OpenAIStreamRewriter(forward)
@@ -414,8 +463,7 @@ async def chat_completions(
                     entity_counts,
                     {"usage": rewriter.usage},
                 )
-                await record_event(redis, event)
-                log_telemetry(event, 200)
+                await _emit(state, event, 200)
 
         headers["Cache-Control"] = "no-cache"
         headers["X-Accel-Buffering"] = "no"
@@ -427,8 +475,7 @@ async def chat_completions(
     upstream_ms = (time.perf_counter() - started) * 1000
     if status >= 400:
         event = reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, completion=data)
-        await record_event(redis, event)
-        log_telemetry(event, status)
+        await _emit(state, event, status)
         return JSONResponse(status_code=status, headers=headers, content=data)
 
     # Reinjector (PRD 5.4): tolerant Placeholder → original. A Redis outage here
@@ -450,8 +497,7 @@ async def chat_completions(
     event = reported(
         response_status, scrub_ms, reinject_ms, upstream_ms, unresolved, entity_counts, data
     )
-    await record_event(redis, event)
-    log_telemetry(event, status)
+    await _emit(state, event, status)
     return JSONResponse(status_code=status, headers=headers, content=data)
 
 
@@ -488,7 +534,7 @@ async def messages(
             limit = await consume_rate_limit(redis, tenant_id)
         except RedisError:
             return await _blocked(
-                redis, request_id, session, payload.model, payload.stream, 0.0,
+                state, request_id, session, payload.model, payload.stream, 0.0,
                 "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
                 _anthropic_api_error,
             )
@@ -545,14 +591,14 @@ async def messages(
         )
     except ScrubError:
         return await _blocked(
-            redis, request_id, session, payload.model, payload.stream,
+            state, request_id, session, payload.model, payload.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_scrub_failed", "Scrubber failed; request blocked fail-closed.",
             _anthropic_api_error,
         )
     except RedisError:
         return await _blocked(
-            redis, request_id, session, payload.model, payload.stream,
+            state, request_id, session, payload.model, payload.stream,
             (time.perf_counter() - started) * 1000,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
             _anthropic_api_error,
@@ -565,7 +611,7 @@ async def messages(
         await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
     except RedisError:
         return await _blocked(
-            redis, request_id, session, payload.model, payload.stream, scrub_ms,
+            state, request_id, session, payload.model, payload.stream, scrub_ms,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
             _anthropic_api_error,
         )
@@ -599,8 +645,7 @@ async def messages(
             event = reported(
                 "upstream_error", scrub_ms, 0.0, upstream_ms, 0, response=result
             )
-            await record_event(redis, event)
-            log_telemetry(event, status)
+            await _emit(state, event, status)
             return JSONResponse(status_code=status, headers=headers, content=result)
 
         rewriter = AnthropicStreamRewriter(forward)
@@ -646,8 +691,7 @@ async def messages(
                     entity_counts,
                     {"usage": rewriter.usage()},
                 )
-                await record_event(redis, event)
-                log_telemetry(event, 200)
+                await _emit(state, event, 200)
 
         headers["Cache-Control"] = "no-cache"
         headers["X-Accel-Buffering"] = "no"
@@ -668,8 +712,7 @@ async def messages(
         )
     if status >= 400:
         event = reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, response=data)
-        await record_event(redis, event)
-        log_telemetry(event, status)
+        await _emit(state, event, status)
         return JSONResponse(status_code=status, headers=headers, content=data)
 
     started = time.perf_counter()
@@ -686,8 +729,7 @@ async def messages(
     event = reported(
         response_status, scrub_ms, reinject_ms, upstream_ms, unresolved, entity_counts, data
     )
-    await record_event(redis, event)
-    log_telemetry(event, status)
+    await _emit(state, event, status)
     return JSONResponse(status_code=status, headers=headers, content=data)
 
 
