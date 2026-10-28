@@ -8,6 +8,11 @@
 - The requested `/security` and `/compliance/ndpa` stubs remain as explicit launch aliases while the site blueprint’s longer-term Trust routes are added in later steps.
 - The five route pages deliberately render no body content; their shared marketing layout renders the complete responsive navigation while page copy remains out of scope.
 
+### Marketing landing page
+
+- `DESIGN.md` forbids rendering pre-scrub text in any UI. The hero preserves the landing-copy Wire Tap labels and post-scrub example, but replaces the red pre-scrub example line with `[pre-scrub text stays in your network]`.
+- The design-partner application is a prefilled `mailto:` draft because `LANDING_COPY.md` specifies the information to collect but does not provide a destination work email.
+
 ### Step 1: Contracts and state
 
 - Added `backend/app/__init__.py` (not spelled out in PRD 10) so `app` imports reliably as a regular package under `uv run` and pytest.
