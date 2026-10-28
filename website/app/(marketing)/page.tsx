@@ -184,7 +184,7 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">One-line integration</p>
-            <p className="mt-4 max-w-md leading-7 text-zinc-300">Works with the official OpenAI SDK, including tool calling and stream=True. Anthropic Messages API support: on the roadmap.</p>
+            <p className="mt-4 max-w-md leading-7 text-zinc-300">Works with the official OpenAI SDK and Anthropic SDK, including streaming and tool calls.</p>
           </div>
           <div className="overflow-x-auto rounded-xl bg-zinc-950 p-5 ring-1 ring-white/10 sm:p-7">
             <pre className="font-mono text-sm leading-7 text-zinc-300"><code><span className="text-violet-300">from</span> openai <span className="text-violet-300">import</span> OpenAI{"\n"}client = OpenAI({"\n"}    base_url=<span className="text-emerald-300">{`"http://aegis.internal:8000/v1"`}</span>,   <span className="text-zinc-500"># was https://api.openai.com/v1</span>{"\n"}    api_key=os.environ[<span className="text-emerald-300">{`"OPENAI_API_KEY"`}</span>],{"\n"})</code></pre>
@@ -255,11 +255,6 @@ export default function HomePage() {
         </Card>
       </section>
 
-      <footer className="border-t border-white/10 px-4 py-8 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-wrap gap-x-5 gap-y-2 text-sm text-zinc-500">
-          <span>Aegis (open source, MIT)</span><Link href="/security">Security policy</Link><Link href="/trust/methodology">Claims and methodology</Link><a href="https://github.com" rel="noreferrer">GitHub</a><Link href="/trust/status">Status</Link>
-        </div>
-      </footer>
     </main>
   );
 }

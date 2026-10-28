@@ -13,6 +13,13 @@
 - `DESIGN.md` forbids rendering pre-scrub text in any UI. The hero preserves the landing-copy Wire Tap labels and post-scrub example, but replaces the red pre-scrub example line with `[pre-scrub text stays in your network]`.
 - The design-partner application is a prefilled `mailto:` draft because `LANDING_COPY.md` specifies the information to collect but does not provide a destination work email.
 
+### Marketing architecture expansion
+
+- `docs/SITE_ARCHITECTURE.md` is implemented as a data-driven marketing route tree so every documented non-blog route has a substantive page without duplicating route components.
+- The organisation's legal name, address, applicable privacy contact, effective dates, general contact channel, processor list, and contract terms are not in the repository. Privacy, terms, DPA, cookie, contact, design-partner, and subprocessor pages therefore clearly remain in publication review rather than presenting invented or binding legal content.
+- `security@aegisproxy.dev` and `aegisproxy.dev` are used only where already published in `SECURITY.md`; `NEXT_PUBLIC_SITE_URL` overrides the sitemap, robots, and security.txt origin during deployment.
+- The existing Vercel project is retained as the marketing project, with a separate future dashboard project (`aegis-app`) recommended in `docs/WEBSITE_APP_INTEGRATION.md`; no Vercel project, domain, or environment variable was changed by this implementation.
+
 ### Step 1: Contracts and state
 
 - Added `backend/app/__init__.py` (not spelled out in PRD 10) so `app` imports reliably as a regular package under `uv run` and pytest.

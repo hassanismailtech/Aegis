@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, ShieldCheck, Wifi, WifiOff } from "lucide-react";
+import { Activity, ArrowLeft, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { Stats } from "@/lib/types";
@@ -12,6 +12,7 @@ type TopBarProps = {
 };
 
 export function TopBar({ stats, connection }: TopBarProps) {
+  const marketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL;
   const leakLabel = stats.leaks
     ? `${stats.leaks.leaks} / ${stats.leaks.planted}`
     : "not run";
@@ -20,7 +21,7 @@ export function TopBar({ stats, connection }: TopBarProps) {
     <header className="border-b border-white/10 bg-zinc-950/75 px-4 py-4 backdrop-blur-xl md:px-8">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-5">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-cyan-300 text-zinc-950 shadow-[0_0_24px_rgba(34,211,238,0.2)]">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-cyan-300 text-zinc-950 ring-1 ring-cyan-200/40">
             <ShieldCheck className="size-5" />
           </div>
           <div>
@@ -32,6 +33,7 @@ export function TopBar({ stats, connection }: TopBarProps) {
             {connection === "live" ? "Telemetry live" : connection === "connecting" ? "Connecting" : "Reconnecting"}
           </Badge>
           <span className="hidden items-center gap-1.5 text-xs text-muted-foreground lg:flex"><Activity className="size-3.5" /> OpenAI-compatible proxy</span>
+          {marketingUrl && <a href={marketingUrl} className="ml-auto hidden items-center gap-1.5 text-xs text-cyan-300 transition-colors duration-150 ease-in-out hover:text-cyan-200 md:inline-flex"><ArrowLeft className="size-3.5" /> Aegis site</a>}
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
           <Metric label="Entities scrubbed" value={stats.entities_total.toLocaleString()} hint="all types" />

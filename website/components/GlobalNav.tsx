@@ -9,6 +9,7 @@ import {
   Network,
   ScanSearch,
   ShieldCheck,
+  Users,
   Terminal,
 } from "lucide-react";
 
@@ -91,6 +92,87 @@ const trustLinks: MenuLink[] = [
   },
 ];
 
+const solutionLinks: MenuLink[] = [
+  {
+    title: "For Platform Engineers",
+    description: "SDK integration, private deployment, and failure policy.",
+    href: "/solutions/platform-engineers",
+    icon: Terminal,
+  },
+  {
+    title: "For DPOs & Compliance",
+    description: "Technical evidence and explicit limitations.",
+    href: "/solutions/dpo-compliance",
+    icon: FileCheck2,
+  },
+  {
+    title: "For Security & AppSec",
+    description: "Fail-closed paths and disclosure guidance.",
+    href: "/solutions/security",
+    icon: ShieldCheck,
+  },
+  {
+    title: "For AI Builders",
+    description: "Tool-call and tool-result boundaries.",
+    href: "/solutions/ai-builders",
+    icon: Network,
+  },
+];
+
+const developerLinks: MenuLink[] = [
+  {
+    title: "Quickstart",
+    description: "Bring up Aegis and change your SDK base URL.",
+    href: "/developers/quickstart",
+    icon: Terminal,
+  },
+  {
+    title: "OpenAI SDK",
+    description: "Chat completions, streaming, and tool calls.",
+    href: "/developers/openai",
+    icon: Network,
+  },
+  {
+    title: "Anthropic SDK",
+    description: "Messages API and streaming through the boundary.",
+    href: "/developers/anthropic",
+    icon: Network,
+  },
+  {
+    title: "Deploy",
+    description: "VPC or on-prem deployment guidance.",
+    href: "/developers/deploy",
+    icon: Boxes,
+  },
+];
+
+const companyLinks: MenuLink[] = [
+  {
+    title: "About Aegis",
+    description: "The open-source data-boundary project.",
+    href: "/company/about",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Design Partners",
+    description: "Shape real boundary and evidence needs.",
+    href: "/company/design-partners",
+    icon: Users,
+  },
+  {
+    title: "Changelog",
+    description: "Recent product changes from the repository.",
+    href: "/company/changelog",
+    icon: FileCheck2,
+  },
+  {
+    title: "Contact",
+    description: "Published communication paths and requirements.",
+    href: "/company/contact",
+    icon: Users,
+  },
+];
+
 function MegaMenu({
   links,
   eyebrow,
@@ -149,6 +231,7 @@ function MobileLink({ href, children }: { href: string; children: React.ReactNod
 }
 
 export function GlobalNav() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -166,9 +249,27 @@ export function GlobalNav() {
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
+              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Solutions</NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <MegaMenu links={solutionLinks} eyebrow="Solutions" title="Routes for the people who operate the boundary." href="/solutions" />
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Developers</NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <MegaMenu links={developerLinks} eyebrow="Developers" title="Integrate without rewriting your agents." href="/developers" />
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
               <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Trust &amp; Security</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={trustLinks} eyebrow="Trust" title="Evidence, architecture, and limits." href="/trust" />
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Company</NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <MegaMenu links={companyLinks} eyebrow="Company" title="An open-source project with a clear boundary." href="/company" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
@@ -185,6 +286,7 @@ export function GlobalNav() {
         </NavigationMenu>
 
         <div className="hidden items-center gap-2 lg:flex">
+          {appUrl && <Button variant="ghost" render={<a href={appUrl} />} className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">Dashboard</Button>}
           <Button variant="outline" render={<Link href="/pricing" />} className="border-white/10 bg-zinc-900 text-zinc-100 hover:bg-zinc-800">
             Design partners
           </Button>
@@ -204,11 +306,18 @@ export function GlobalNav() {
             <nav className="flex flex-col gap-1 p-3" aria-label="Mobile navigation">
               <MobileLink href="/product">Product</MobileLink>
               {productLinks.map((link) => <MobileLink key={link.href} href={link.href}>{link.title}</MobileLink>)}
+              <MobileLink href="/solutions">Solutions</MobileLink>
+              {solutionLinks.map((link) => <MobileLink key={link.href} href={link.href}>{link.title}</MobileLink>)}
+              <MobileLink href="/developers">Developers</MobileLink>
+              {developerLinks.map((link) => <MobileLink key={link.href} href={link.href}>{link.title}</MobileLink>)}
               <MobileLink href="/trust">Trust &amp; Security</MobileLink>
               {trustLinks.map((link) => <MobileLink key={link.href} href={link.href}>{link.title}</MobileLink>)}
+              <MobileLink href="/company">Company</MobileLink>
+              {companyLinks.map((link) => <MobileLink key={link.href} href={link.href}>{link.title}</MobileLink>)}
               <MobileLink href="/docs">Docs</MobileLink>
               <MobileLink href="/pricing">Pricing</MobileLink>
               <MobileLink href="/playground">Playground</MobileLink>
+              {appUrl && <SheetClose render={<a href={appUrl} />} className="rounded-md px-3 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 ease-in-out hover:bg-white/[0.06] hover:text-cyan-200">Dashboard</SheetClose>}
             </nav>
           </SheetContent>
         </Sheet>
