@@ -227,3 +227,7 @@
 - Public claims in `README.md` aligned with `docs/CLAIMS.md` and `docs/metrics.txt` (reflecting true streaming, Anthropic adapter, and honest evaluation caveats).
 - `backend/app/audit.py` provides an append-only, SHA-256 hash-chained verification log (`aegis audit verify`) for Telemetry Events stored in SQLite (`AUDIT_DB_PATH`). This is cryptographic compliance evidence logging, not proxy session state (which remains strictly in ephemeral Redis per AGENTS rule 8). All generated `*.db` files are gitignored.
 
+### UI/UX pass (2026-10-28)
+
+- The existing one-page dashboard remains the product surface; this pass improves hierarchy, status clarity and post-scrub inspection without adding routes, settings or new backend contracts.
+- The dashboard displays the existing aggregate pipeline overhead as p50/p95 and does not invent separate rule/model latency fields that the current stats API does not expose.

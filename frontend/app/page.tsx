@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Database, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Database, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { EntityChart } from "@/components/EntityChart";
 import { LiveFeed } from "@/components/LiveFeed";
@@ -57,12 +57,20 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(8,145,178,0.13),transparent_35%)]">
+    <main className="min-h-screen">
       <TopBar stats={displayedStats} connection={connection} />
-      <div className="mx-auto max-w-7xl space-y-5 p-4 md:p-8">
+      <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-8">
+        <section className="flex flex-col justify-between gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end">
+          <div>
+            <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-cyan-300"><ShieldCheck className="size-3.5" /> Boundary activity</p>
+            <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-white md:text-4xl">Know what your agent sends upstream.</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">A live view of scrubbed traffic, entity detection and the exact post-scrub messages received by your Upstream.</p>
+          </div>
+          <a className="inline-flex items-center gap-1.5 text-sm text-cyan-300 transition-colors hover:text-cyan-200" href="https://github.com/hassanismailtech/Aegis" target="_blank" rel="noreferrer">View source <ArrowUpRight className="size-4" /></a>
+        </section>
         {events.length === 0 && (
-          <section className="flex flex-col items-start justify-between gap-4 rounded-xl border border-dashed border-cyan-300/30 bg-cyan-300/5 p-5 sm:flex-row sm:items-center">
-            <div><p className="font-semibold">Waiting for traffic</p><p className="mt-1 text-sm text-muted-foreground">Connect an agent or seed synthetic telemetry to populate the control plane.</p></div>
+          <section className="flex flex-col items-start justify-between gap-5 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.04] p-5 sm:flex-row sm:items-center">
+            <div><p className="font-semibold">Waiting for traffic</p><p className="mt-1 max-w-xl text-sm text-muted-foreground">Connect an agent or seed synthetic telemetry to populate the control plane. Wire View never displays pre-scrub text.</p><code className="mt-3 block w-fit rounded-md border border-white/10 bg-black/30 px-2.5 py-1.5 font-mono text-xs text-cyan-200">python demo/agent.py</code></div>
             <Button onClick={seed} disabled={seeding}><Database className="size-4" />{seeding ? "Seeding..." : "Seed demo data"}</Button>
           </section>
         )}
@@ -70,9 +78,9 @@ export default function Home() {
           <LiveFeed events={events} selectedId={selected?.request_id ?? null} onSelect={setSelected} />
           <EntityChart stats={displayedStats} />
         </div>
-        <WireView event={selected} />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Redis-backed telemetry · no pre-scrub text displayed</span>
+        <WireView key={selected?.request_id ?? "empty"} event={selected} />
+        <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><ShieldCheck className="size-3.5 text-emerald-300" />Post-scrub telemetry only</span>
           <Button variant="ghost" size="sm" onClick={refreshStats}><RefreshCw className="size-3" />Refresh</Button>
         </div>
       </div>

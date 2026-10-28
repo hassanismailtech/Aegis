@@ -6,9 +6,9 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Aegis | Sovereign PII proxy",
+  title: "Aegis | Data boundary control plane",
   description:
-    "Proof of exactly what left the building: scrubbed agent traffic, live.",
+    "See exactly what crossed your model boundary, post-scrub.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

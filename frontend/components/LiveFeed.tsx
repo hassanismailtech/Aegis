@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Clock3 } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Clock3, ShieldAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,9 @@ export function LiveFeed({
       <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Activity className="size-4 text-cyan-300" /> Live feed
-          <span className="ml-auto font-mono text-xs text-muted-foreground">{events.length} events</span>
+          <span className="ml-auto font-mono text-xs font-normal text-muted-foreground">{events.length} shown</span>
         </CardTitle>
+        <p className="text-xs text-muted-foreground">Select a request to inspect its post-scrub outbound messages.</p>
       </CardHeader>
       <CardContent className="p-0">
         {events.length === 0 ? (
@@ -37,15 +38,16 @@ export function LiveFeed({
                   key={event.request_id}
                   type="button"
                   onClick={() => onSelect(event)}
-                  className={`w-full px-4 py-3 text-left transition-colors hover:bg-white/5 ${selectedId === event.request_id ? "bg-cyan-400/10" : ""}`}
+                  className={`w-full border-l-2 px-4 py-3 text-left transition-colors hover:bg-white/[0.04] ${selectedId === event.request_id ? "border-cyan-300 bg-cyan-300/[0.07]" : "border-transparent"}`}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="truncate font-mono text-xs text-cyan-200">{event.request_id}</span>
-                    <Badge variant={event.status === "ok" ? "default" : "destructive"}>{event.status}</Badge>
+                    <span className="flex min-w-0 items-center gap-2 font-mono text-xs text-cyan-200"><StatusIcon status={event.status} /><span className="truncate">{event.request_id}</span></span>
+                    <Badge variant={event.status === "ok" ? "outline" : "destructive"} className="capitalize">{event.status.replace("_", " ")}</Badge>
                   </div>
                   <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="font-medium text-zinc-300">{event.model}</span>
                     <span>{event.entities_total} entities</span>
-                    <span>{event.overhead_ms.toFixed(1)} ms overhead</span>
+                    <span>{event.overhead_ms.toFixed(1)} ms</span>
                     <span className="ml-auto flex items-center gap-1"><Clock3 className="size-3" />{event.ts.slice(11, 19)}</span>
                   </div>
                 </button>
@@ -56,4 +58,10 @@ export function LiveFeed({
       </CardContent>
     </Card>
   );
+}
+
+function StatusIcon({ status }: { status: TelemetryEvent["status"] }) {
+  if (status === "ok") return <CheckCircle2 className="size-3.5 text-emerald-300" />;
+  if (status === "state_loss") return <ShieldAlert className="size-3.5 text-amber-300" />;
+  return <AlertTriangle className="size-3.5 text-rose-300" />;
 }
