@@ -2,11 +2,12 @@
 
 Order matters: PHONE is matched before the 11-digit IDs because a national
 phone number is 11 digits starting with 0. ACCOUNT_NO needs a label
-(account/acct/a/c/NUBAN) within 40 chars before the digits; bare 10-digit
-numbers are usually amounts and stay untouched. Labels for NIN/ACCOUNT_NO
-are searched case-insensitively in the 40-char window before a digit run.
-Digits separated by spaces or dashes (item "2 2 3 3 4 4 5 5 6 6 7") count as
-one run for every digit type.
+(account/acct/a/c/NUBAN) within 40 chars before the digits, or a named bank
+whose CBN code validates the check digit. Bare 10-digit numbers are usually
+amounts and stay untouched. Labels for NIN/ACCOUNT_NO are searched
+case-insensitively in the 40-char window before a digit run. Digits separated
+by spaces or dashes (item "2 2 3 3 4 4 5 5 6 6 7") count as one run for every
+digit type.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ from collections.abc import Sequence
 
 from app.detectors.base import Span
 from app.schemas import EntityType
+
+from .validators import bank_code_in_context, is_valid_nuban
 
 _WINDOW = 40  # chars of context checked before a digit run (PRD 6)
 _SEP = r"[ \t\u00a0-]"  # spaces or dashes allowed between digit groups
@@ -71,8 +74,14 @@ def pattern_spans(text: str) -> list[Span]:
         spans.append(Span(match.start(), match.end(), label, match.group(0)))
     for match in _DIG10.finditer(text):
         if _overlaps_any(match.start(), match.end(), spans):
-            continue  # bare 10-digit numbers are usually amounts: leave alone
+            continue
         if _window_has(text, match.start(), _ACCOUNT_LABEL):
+            account = True  # explicit label wins, even if the checksum is unknown
+        else:
+            digits = re.sub(r"\D", "", match.group(0))
+            code = bank_code_in_context(text, match.start())
+            account = code is not None and is_valid_nuban(digits, code)
+        if account:
             spans.append(
                 Span(match.start(), match.end(), EntityType.ACCOUNT_NO, match.group(0))
             )

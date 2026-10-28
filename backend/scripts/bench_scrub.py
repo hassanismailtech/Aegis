@@ -16,7 +16,7 @@ import time
 
 from app.config import settings
 from app.scrubber import ner_leftover
-from app.scrubber.ner import get_ner, warm_ner
+from app.scrubber.ner import has_name_candidate, warm_ner
 from packs.ng.gazetteer import find_persons as gazetteer_persons
 from packs.ng.patterns import pattern_spans
 
@@ -86,11 +86,17 @@ async def bench() -> None:
     if settings.ner_enabled:
         ner = await warm_ner()
     ner_state = "on" if ner is not None else "OFF (NER_ENABLED=false or warm failed)"
-    print(f"bench: NER {ner_state}; model={settings.ner_model}; timeout_ms={settings.ner_timeout_ms}")
+    print(
+        f"bench: NER {ner_state}; model={settings.ner_model}; "
+        f"runtime={settings.ner_runtime}; timeout_ms={settings.ner_timeout_ms}; "
+        f"cache_ttl={settings.ner_cache_ttl_seconds}s"
+    )
     if ner is not None:
         chunks = ner_leftover(_WORDS_60, pattern_spans(_WORDS_60))
         for _ in range(3):  # warm jit paths before timing
-            await asyncio.to_thread(ner.find_persons, [c for c in chunks if c.strip()])
+            await asyncio.to_thread(
+                ner.find_persons, [c for c in chunks if c.strip()], False
+            )
     for label, prompt in (("60-word", _WORDS_60), ("500-word", _prompt_500())):
         words = len(prompt.split())
         patterns = [pattern_layer_ms(prompt) for _ in range(RUNS)]
@@ -103,16 +109,44 @@ async def bench() -> None:
             print("  NER layer: skipped (disabled)")
             continue
         chunks = [c for c in ner_leftover(prompt, pattern_spans(prompt)) if c.strip()]
+        candidates = sum(has_name_candidate(chunk) for chunk in chunks)
         timings = []
-        for _ in range(RUNS):
+        for _ in range(RUNS):  # cold: cache bypassed so the model is measured
             started = time.perf_counter()
-            await asyncio.to_thread(ner.find_persons, list(chunks))
+            await asyncio.to_thread(ner.find_persons, list(chunks), False)
             timings.append((time.perf_counter() - started) * 1000)
         p50, p95 = percentile(timings, 0.5), percentile(timings, 0.95)
         marker = "" if p95 <= NER_BUDGET_MS else f"  (over the {NER_BUDGET_MS:.0f}ms budget: PRD 9 fallback is ACTIVE)"
         print(
             f"  NER layer (GLiNER on leftovers, {len(chunks)} chunk(s), "
-            f"uncapped for this report): p50={p50:.1f}ms p95={p95:.1f}ms{marker}"
+            f"{candidates} candidate; uncapped for this report): "
+            f"p50={p50:.1f}ms p95={p95:.1f}ms{marker}"
+        )
+        if not candidates:
+            continue
+        for _ in range(3):  # populate the content-hash cache
+            await asyncio.to_thread(ner.find_persons, list(chunks))
+        hits = []
+        for _ in range(RUNS):
+            started = time.perf_counter()
+            await asyncio.to_thread(ner.find_persons, list(chunks))
+            hits.append((time.perf_counter() - started) * 1000)
+        print(
+            f"  NER cache hit (same prompt): "
+            f"p50={percentile(hits, 0.5):.2f}ms p95={percentile(hits, 0.95):.2f}ms"
+        )
+    if ner is not None:  # skip probe: rules leave no letter-bearing words
+        prompt = "50000 0123456789 22334455667 08031234567"
+        chunks = [c for c in ner_leftover(prompt, pattern_spans(prompt)) if c.strip()]
+        skipped = []
+        for _ in range(RUNS):
+            started = time.perf_counter()
+            await asyncio.to_thread(ner.find_persons, list(chunks), False)
+            skipped.append((time.perf_counter() - started) * 1000)
+        print(
+            f"skip probe (no name candidates): {len(chunks)} chunk(s), "
+            f"{sum(has_name_candidate(c) for c in chunks)} candidate; "
+            f"p50={percentile(skipped, 0.5):.2f}ms p95={percentile(skipped, 0.95):.2f}ms"
         )
 
 

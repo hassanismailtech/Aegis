@@ -1,5 +1,7 @@
 """Environment for Aegis: every variable in PRD 7.5, loaded from .env."""
 
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,6 +18,12 @@ class Settings(BaseSettings):
     ner_model: str = "urchade/gliner_small-v2.1"
     ner_threshold: float = 0.5
     ner_timeout_ms: int = 2000
+    ner_runtime: Literal["torch", "onnx"] = "torch"
+    ner_onnx_dir: str = "data/ner_onnx"
+    ner_onnx_file: str = "model_quantized.onnx"
+    ner_cache_ttl_seconds: int = Field(default=300, ge=0)
+    ner_cache_max_entries: int = Field(default=512, ge=1)
+    eval_recall_floor: float = Field(default=0.85, ge=0, le=1)
     fee_usd_per_1k_tokens: float = 0.001
     cors_origins: str = "http://localhost:3000"
     detector_packs: list[str] = ["ng"]

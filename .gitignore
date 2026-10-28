@@ -7,6 +7,9 @@ __pycache__/
 # environment (rule 10: never commit .env)
 .env
 
+# generated ONNX artifacts (never commit model weights)
+backend/data/ner_onnx/
+
 # frontend (added in step 5)
 node_modules/
 .next/

@@ -22,7 +22,7 @@ from app.detectors import Detector, Span, load_detectors
 from app.errors import ScrubError
 from app.schemas import EntityType
 from app.session_map import SessionMap
-from .ner import CHUNK_CHARS, GlinerNer
+from .ner import CHUNK_CHARS, GlinerNer, has_name_candidate
 
 _PACK_DETECTORS: tuple[Detector, ...] = load_detectors(tuple(settings.detector_packs))
 _PRIORITY = {
@@ -77,8 +77,10 @@ class _NerPersonDetector:
         chunks = [
             (cut * CHUNK_CHARS, chunk)
             for cut, chunk in enumerate(all_chunks)
-            if chunk.strip()
+            if has_name_candidate(chunk)
         ]
+        if not chunks:
+            return []  # no candidate name letters after rules: skip the model
         try:
             ner_spans = await asyncio.wait_for(
                 asyncio.to_thread(self._ner.find_persons, [chunk for _, chunk in chunks]),
