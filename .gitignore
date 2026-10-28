@@ -3,16 +3,32 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+coverage/
+*.log
 
 # environment (rule 10: never commit .env)
 .env
+.env.*
+!.env.example
+
+# private working documents (do not commit)
+private/
 
 # generated ONNX artifacts (never commit model weights)
 backend/data/ner_onnx/
 
-# frontend (added in step 5)
+# local SQLite databases and logs
+*.db
+*.db-*
+backend/data/*.db
+backend/data/*.db-*
+
+# frontend
 node_modules/
 .next/
+dist/
 
 # os / editors
 .DS_Store
+.idea/
+.vscode/
