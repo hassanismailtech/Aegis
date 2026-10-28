@@ -1,6 +1,6 @@
 # Aegis
 
-**Aegis is an OpenAI-compatible PII proxy for agents handling regulated Nigerian data.** It scrubs sensitive values before they reach an external Upstream, then reinjects them only in the response returned to the caller. The Wire Tap and live dashboard make the boundary observable.
+**Aegis is an OpenAI- and Anthropic-compatible PII proxy for agents handling regulated Nigerian data.** It scrubs sensitive values before they reach an external Upstream, then reinjects them only in the response returned to the caller. The Wire Tap and live dashboard make the boundary observable.
 
 ## The problem
 
@@ -9,7 +9,7 @@ Banks, fintechs and hospitals want to use frontier-model agents, but sending BVN
 ## Core Loop
 
 ```text
- Agent / OpenAI SDK
+ Agent / OpenAI / Anthropic SDK
           |
           v
  +-------------------+
@@ -29,10 +29,12 @@ Every request is handled as one session: messages, assistant tool-call arguments
 
 ## What is included now
 
-- OpenAI-compatible `POST /v1/chat/completions`, including pseudo-streaming for `stream: true`.
-- Nigerian-aware Scrubber layers: patterns, gazetteer and GLiNER PERSON detection.
+- OpenAI-compatible `POST /v1/chat/completions` and Anthropic `POST /v1/messages`, including true streaming with hold-back buffer for `stream: true`.
+- Nigerian-aware Scrubber layers: patterns, gazetteer, NUBAN check digit validation, and GLiNER PERSON detection.
 - Redis-only Session Map with stable Placeholders and sliding TTL.
 - Tool-call and tool-result handling, tolerant Reinjector, and fail-closed scrub/state errors.
+- Per-tenant API key authentication, request/body limits, and rate limiting (authentication is off unless `AEGIS_KEYS_FILE` is set).
+- Signed dashboard tickets for browser-native SSE streams.
 - Redis-backed Telemetry Event stream, `/stats`, Wire Tap endpoint and synthetic seed endpoint.
 - Dark, high-contrast single-page dashboard at `frontend/`.
 - Offline mock Upstream, two-tool official SDK demo agent, leak test, recall evaluation and scrub benchmark.
@@ -128,15 +130,17 @@ cd ..\frontend
 npm run build
 ```
 
-Recall and latency are measured, not promised. `eval_recall.py` reports per-type precision and recall on the checked-in labeled set; `bench_scrub.py` reports pattern and NER p50/p95 on the demo machine.
+Recall and latency are measured, not promised. `eval_recall.py` reports per-type precision and recall on the checked-in synthetic regression set (220 project-authored sentences; not independent human-labelled data); `bench_scrub.py` reports pattern and NER p50/p95 on the demo machine.
 
 ## Honest limitations
 
-- Names are model-detected and recall is measured, not guaranteed; structured IDs are rule-detected.
+- Names are model-detected and recall is measured, not guaranteed; structured IDs are rule-detected with checksum validation where applicable (e.g. NUBAN).
+- Evaluation set is synthetic and project-authored: on the 220-sentence set, structured types achieve 100.0% precision/recall, PERSON recall is 96.9% [93.5%, 98.6%], but PERSON precision is 61.9% [56.3%, 67.1%] due to over-redaction.
 - Deliberately obfuscated values such as leetspeak/spelled-out digits are not guaranteed to be detected; do not present the current Scrubber as an adversarial-evasion defense.
-- True chunked streaming with a hold-back buffer is not implemented yet; `stream: true` uses a valid pseudo-stream after a non-streaming Upstream call.
+- Cold model latency on long prompts (500+ words) can exceed the 2 s default timeout and return 503; rule layers run in ~0.15–0.22 ms (60 words), but cold model runs take ~350–440 ms (60 words) and ~3.2–4.3 s (500 words).
+- Authentication and rate limiting are off unless `AEGIS_KEYS_FILE` is provided. On non-loopback interfaces, Aegis refuses to start without keys unless `AEGIS_INSECURE_DEV=1`.
 - The mock Upstream is intentionally in-memory and is for offline demos, not production inference.
-- Redis is ephemeral and there is no persistence, authentication, billing, user account or multi-tenant control plane.
+- Redis is ephemeral (no persistence, snapshots and AOF disabled, no volume). There is no billing or user account management plane.
 - In-country deployment is a roadmap item, not a current compliance claim.
 - The Wire Tap is retained for a short TTL and should be treated as sensitive operational data even though it contains only post-scrub text.
 
@@ -144,15 +148,15 @@ Recall and latency are measured, not promised. `eval_recall.py` reports per-type
 
 - **What problem?** Aegis reduces the risk of regulated Nigerian PII crossing to an external LLM while preserving agent quality.
 - **Who is the user?** Tobi, a platform engineer, changes `base_url`, while Femi, a DPO, gets proof of what left the building.
-- **What does it do now?** It scrubs chat and agent tool traffic, calls an OpenAI-compatible Upstream, reinjects responses, and shows live evidence.
+- **What does it do now?** It scrubs chat, Messages and agent tool traffic, relays OpenAI and Anthropic streams with hold-back, reinjects responses, and shows live evidence.
 - **What did we build in 24 hours?** A working proxy, Nigerian entity pack, Redis Session Map, Wire Tap, leak test, mock Upstream, SDK demo and dashboard.
-- **What next?** Add true streaming hold-back, harden deployment controls, expand entity coverage and ship an in-country operating model.
+- **What next?** Improve PERSON precision to reduce over-redaction, add parallel chunking for long prompts, expand entity coverage and ship an in-country operating model.
 
 ## Architecture and security posture
 
 Aegis is intentionally stateless at the process layer: Redis is the only Session Map and telemetry store, so horizontal proxy replicas share state without introducing a second database. Scrubbing and Session Map writes happen before the Upstream call; if either fails, the request is blocked. If state is lost after the call, the Reinjector leaves unknown Placeholders intact rather than guessing. Telemetry is best effort and contains counts, IDs and timings only.
 
-The current repository does not implement authentication, authorization, rate limiting, TLS termination, secret rotation or tenant isolation. Those are deployment responsibilities and explicit product scope exclusions, not hidden guarantees. Run the service on a private network or behind an authenticated TLS gateway before connecting a real Upstream.
+The proxy supports per-tenant API keys, request/body size limits and token-bucket rate limiting when configured via `AEGIS_KEYS_FILE`. When `AEGIS_KEYS_FILE` is omitted, authentication is off (startup on non-loopback addresses is refused unless `AEGIS_INSECURE_DEV=1`). TLS termination, secret rotation, and enterprise billing/user management remain deployment responsibilities. Run the service on a private network or behind an authenticated TLS gateway before connecting a real Upstream.
 
 ## License
 
