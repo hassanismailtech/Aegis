@@ -126,7 +126,7 @@ def _render(text: str, spans: list[Span], placeholders: list[str]) -> str:
     return "".join(parts)
 
 
-async def _scrub_text(
+async def scrub_text(
     text: str,
     session_map: SessionMap,
     counts: dict[EntityType, int],
@@ -157,18 +157,18 @@ async def _scrub_text(
     return _render(text, spans, placeholders)
 
 
-async def _scrub_json_value(value: Any, session_map: SessionMap, counts, ner, context: str = "") -> Any:
+async def scrub_json_value(value: Any, session_map: SessionMap, counts, ner, context: str = "") -> Any:
     """Scrub string values inside parsed JSON, keep the structure (PRD 5.1).
     Dict keys are passed as label context to their string values."""
     if isinstance(value, str):
-        return await _scrub_text(value, session_map, counts, ner, context)
+        return await scrub_text(value, session_map, counts, ner, context)
     if isinstance(value, dict):
         return {
-            key: await _scrub_json_value(item, session_map, counts, ner, f"{key} ")
+            key: await scrub_json_value(item, session_map, counts, ner, f"{key} ")
             for key, item in value.items()
         }
     if isinstance(value, list):
-        return [await _scrub_json_value(item, session_map, counts, ner, context) for item in value]
+        return [await scrub_json_value(item, session_map, counts, ner, context) for item in value]
     return value
 
 
@@ -179,8 +179,8 @@ async def _scrub_arguments(
     try:
         data = json.loads(raw)
     except ValueError:
-        return await _scrub_text(raw, session_map, counts, ner)  # not JSON: plain text
-    return json.dumps(await _scrub_json_value(data, session_map, counts, ner))
+        return await scrub_text(raw, session_map, counts, ner)  # not JSON: plain text
+    return json.dumps(await scrub_json_value(data, session_map, counts, ner))
 
 
 async def _scrub_tool_call(
@@ -205,7 +205,7 @@ async def _scrub_content_part(part: Any, session_map, counts, ner) -> Any:
         and part.get("type") == "text"
         and isinstance(part.get("text"), str)
     ):
-        return {**part, "text": await _scrub_text(part["text"], session_map, counts, ner)}
+        return {**part, "text": await scrub_text(part["text"], session_map, counts, ner)}
     return part
 
 
@@ -217,7 +217,7 @@ async def _scrub_message(
     new = dict(message)
     content = message.get("content")
     if isinstance(content, str):
-        new["content"] = await _scrub_text(content, session_map, counts, ner)
+        new["content"] = await scrub_text(content, session_map, counts, ner)
     elif isinstance(content, list):
         new["content"] = [
             await _scrub_content_part(part, session_map, counts, ner) for part in content

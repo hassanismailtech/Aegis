@@ -31,7 +31,12 @@ build-backend = "hatchling.build"
 packages = ["app", "packs"]
 
 [dependency-groups]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "asgi-lifespan>=2.1"]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "asgi-lifespan>=2.1",
+    "anthropic>=2.3.0",
+]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }

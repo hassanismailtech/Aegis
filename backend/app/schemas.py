@@ -25,6 +25,18 @@ class ChatRequest(BaseModel):
     stream: bool = False
 
 
+class MessagesRequest(BaseModel):
+    """Anthropic Messages request; unknown fields pass through untouched."""
+
+    model_config = ConfigDict(extra="allow")
+
+    model: str
+    max_tokens: int = Field(gt=0)
+    messages: list[dict[str, Any]]
+    system: str | list[dict[str, Any]] | None = None
+    stream: bool = False
+
+
 class TelemetryEvent(BaseModel):
     """Exactly the JSON in PRD 7.3."""
 

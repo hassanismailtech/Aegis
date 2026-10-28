@@ -48,6 +48,17 @@ class Reinjector:
         """JSON string (function arguments): replacements JSON-escaped."""
         return self._swap(arguments, json_escape=True)
 
+    def json_value(self, value: Any) -> Any:
+        """Walk a parsed JSON value (e.g. Anthropic tool_use input); string leaves
+        are swapped verbatim because the caller will serialize the structure."""
+        if isinstance(value, str):
+            return self.content(value)
+        if isinstance(value, dict):
+            return {key: self.json_value(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self.json_value(item) for item in value]
+        return value
+
     def _swap(self, text: str, *, json_escape: bool) -> str:
         counter = self
 

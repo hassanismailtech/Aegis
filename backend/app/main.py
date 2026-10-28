@@ -6,7 +6,7 @@ import hmac
 import json
 import time
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -17,12 +17,13 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 
+from app.anthropic_adapter import reinject_response, scrub_request, usage_tokens
 from app.auth import AuthError, load_keys, require_tenant
 from app.config import settings
-from app.errors import ScrubError, aegis_error
+from app.errors import ScrubError, aegis_error, anthropic_error
 from app.limits import BodySizeLimitMiddleware, consume_rate_limit
 from app.logs import log_request, log_telemetry
-from app.schemas import ChatRequest
+from app.schemas import ChatRequest, MessagesRequest
 from app.session_map import SessionMap
 from app.scrubber import scrub_messages
 from app.scrubber.ner import warm_ner
@@ -71,16 +72,21 @@ app.add_middleware(
 
 
 @app.exception_handler(RequestValidationError)
-async def openai_validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+async def openai_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    message = f"Invalid request body: {exc}"
+    if request.url.path == "/v1/messages":
+        return JSONResponse(status_code=400, content=anthropic_error(message))
     return JSONResponse(
         status_code=400,
-        content=aegis_error(f"Invalid request body: {exc}", "aegis_invalid_request"),
+        content=aegis_error(message, "aegis_invalid_request"),
     )
 
 
 @app.exception_handler(AuthError)
-async def openai_auth_error(_: Request, __: AuthError) -> JSONResponse:
+async def openai_auth_error(request: Request, __: AuthError) -> JSONResponse:
     log_request(status="rejected", http_status=401, reason="unauthorized")
+    if request.url.path == "/v1/messages":
+        return _auth_error(anthropic=True)
     return _auth_error()
 
 
@@ -189,11 +195,15 @@ def _authorized(request: Request) -> bool:
     return supplied is not None and hmac.compare_digest(supplied, expected)
 
 
-def _auth_error() -> JSONResponse:
+def _auth_error(*, anthropic: bool = False) -> JSONResponse:
     return JSONResponse(
         status_code=401,
         headers={"WWW-Authenticate": "Bearer"},
-        content=aegis_error("Aegis access token required.", "aegis_unauthorized"),
+        content=(
+            anthropic_error("Aegis access token required.", "authentication_error")
+            if anthropic
+            else aegis_error("Aegis access token required.", "aegis_unauthorized")
+        ),
     )
 
 
@@ -201,17 +211,19 @@ async def _blocked(
     redis: Redis,
     request_id: str,
     session: str,
-    chat: ChatRequest,
+    model: str,
+    stream_requested: bool,
     scrub_ms: float,
     code: str,
     message: str,
+    error: Callable[[str, str], dict[str, Any]] | None = None,
 ) -> JSONResponse:
     """503 fail-closed (PRD 8) plus a Telemetry Event with status scrub_blocked."""
     event = make_event(
         request_id=request_id,
         session=session,
-        model=chat.model,
-        stream_requested=chat.stream,
+        model=model,
+        stream_requested=stream_requested,
         entities={},
         scrub_ms=scrub_ms,
         reinject_ms=0.0,
@@ -222,11 +234,21 @@ async def _blocked(
     )
     await record_event(redis, event)
     log_telemetry(event, 503)
+    body = (
+        error(message, code)
+        if error is not None
+        else aegis_error(message, code, err_type="api_error")
+    )
     return JSONResponse(
         status_code=503,
         headers={"X-Aegis-Request-Id": request_id},
-        content=aegis_error(message, code, err_type="api_error"),
+        content=body,
     )
+
+
+def _anthropic_api_error(message: str, _code: str) -> dict[str, Any]:
+    """Anthropic-shaped fail-closed body (the Messages API has no error code field)."""
+    return anthropic_error(message, "api_error")
 
 
 @app.post("/v1/chat/completions")
@@ -266,7 +288,7 @@ async def chat_completions(
             limit = await consume_rate_limit(redis, tenant_id)
         except RedisError:
             return await _blocked(
-                redis, request_id, session, chat, 0.0,
+                redis, request_id, session, chat.model, chat.stream, 0.0,
                 "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
             )
         headers["X-RateLimit-Limit"] = str(settings.rate_limit_capacity)
@@ -320,12 +342,14 @@ async def chat_completions(
         )
     except ScrubError:
         return await _blocked(
-            redis, request_id, session, chat, (time.perf_counter() - started) * 1000,
+            redis, request_id, session, chat.model, chat.stream,
+            (time.perf_counter() - started) * 1000,
             "aegis_scrub_failed", "Scrubber failed; request blocked fail-closed.",
         )
     except RedisError:
         return await _blocked(
-            redis, request_id, session, chat, (time.perf_counter() - started) * 1000,
+            redis, request_id, session, chat.model, chat.stream,
+            (time.perf_counter() - started) * 1000,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
         )
     started = time.perf_counter()
@@ -340,7 +364,7 @@ async def chat_completions(
         await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
     except RedisError:
         return await _blocked(
-            redis, request_id, session, chat, scrub_ms,
+            redis, request_id, session, chat.model, chat.stream, scrub_ms,
             "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
         )
 
@@ -383,6 +407,170 @@ async def chat_completions(
     log_telemetry(event, status)
     if chat.stream:  # PRD 5.1: the reinjected completion feeds the pseudo-stream
         return StreamingResponse(_sse_events(data), media_type="text/event-stream", headers=headers)
+    return JSONResponse(status_code=status, headers=headers, content=data)
+
+
+@app.post("/v1/messages")
+async def messages(
+    payload: MessagesRequest, request: Request, tenant_id: str = Depends(require_tenant)
+) -> Response:
+    """Anthropic Messages API, non-streaming: same Scrubber/Reinjector pipeline."""
+    if not tenant_id and not _authorized(request):
+        return _auth_error(anthropic=True)
+    if payload.stream:
+        return JSONResponse(
+            status_code=400,
+            content=anthropic_error("Streaming is not supported; send stream=false."),
+        )
+    request_id = "req_" + uuid.uuid4().hex
+    headers = {"X-Aegis-Request-Id": request_id}
+    state = request.app.state
+    redis: Redis = state.redis
+    session = _session_id(request, tenant_id)
+    session_map = SessionMap(redis, session)
+
+    if len(payload.messages) > settings.max_messages:
+        log_request(
+            request_id=request_id,
+            session=session,
+            status="rejected",
+            http_status=400,
+            reason="too_many_messages",
+        )
+        return JSONResponse(
+            status_code=400,
+            headers=headers,
+            content=anthropic_error(f"Too many messages: limit {settings.max_messages}."),
+        )
+
+    if tenant_id:
+        try:
+            limit = await consume_rate_limit(redis, tenant_id)
+        except RedisError:
+            return await _blocked(
+                redis, request_id, session, payload.model, False, 0.0,
+                "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
+                _anthropic_api_error,
+            )
+        headers["X-RateLimit-Limit"] = str(settings.rate_limit_capacity)
+        headers["X-RateLimit-Remaining"] = str(limit.remaining)
+        if not limit.allowed:
+            headers["Retry-After"] = str(limit.retry_after)
+            log_request(
+                request_id=request_id,
+                session=session,
+                status="rejected",
+                http_status=429,
+                reason="rate_limited",
+            )
+            return JSONResponse(
+                status_code=429,
+                headers=headers,
+                content=anthropic_error(
+                    f"Rate limit exceeded; retry after {limit.retry_after} s.",
+                    "rate_limit_error",
+                ),
+            )
+
+    def reported(
+        status: str,
+        scrub: float,
+        reinject: float,
+        upstream: float,
+        unresolved: int,
+        entities: dict[Any, int] | None = None,
+        response: dict[str, Any] | None = None,
+    ) -> TelemetryEvent:
+        return make_event(
+            request_id=request_id,
+            session=session,
+            model=payload.model,
+            stream_requested=False,
+            entities=entities or {},
+            scrub_ms=scrub,
+            reinject_ms=reinject,
+            upstream_ms=upstream,
+            unresolved=unresolved,
+            status=status,
+            usage=usage_tokens(response.get("usage")) if response else None,
+        )
+
+    request_body = payload.model_dump()
+    if request_body.get("system") is None:
+        request_body.pop("system", None)
+    started = time.perf_counter()
+    try:
+        outbound, entity_counts, scrub_ms = await scrub_request(
+            request_body, session_map, state.ner
+        )
+    except ScrubError:
+        return await _blocked(
+            redis, request_id, session, payload.model, False,
+            (time.perf_counter() - started) * 1000,
+            "aegis_scrub_failed", "Scrubber failed; request blocked fail-closed.",
+            _anthropic_api_error,
+        )
+    except RedisError:
+        return await _blocked(
+            redis, request_id, session, payload.model, False,
+            (time.perf_counter() - started) * 1000,
+            "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
+            _anthropic_api_error,
+        )
+    outbound = outbound_body(outbound)
+    outbound["stream"] = False
+    headers["X-Aegis-Entities"] = str(sum(entity_counts.values()))
+    headers["X-Aegis-Overhead-Ms"] = f"{round(scrub_ms, 1):.1f}"
+    try:
+        await redis.set(_wiretap_key(request_id), json.dumps(outbound), ex=WIRETAP_TTL_SECONDS)
+    except RedisError:
+        return await _blocked(
+            redis, request_id, session, payload.model, False, scrub_ms,
+            "aegis_state_unavailable", "Redis unavailable; request blocked fail-closed.",
+            _anthropic_api_error,
+        )
+
+    started = time.perf_counter()
+    # A tenant key authenticates with Aegis and must never reach Upstream; BYOK
+    # clients can supply the Anthropic key in X-Upstream-Api-Key instead.
+    forwarded_api_key = (
+        request.headers.get("X-Upstream-Api-Key")
+        if tenant_id
+        else request.headers.get("x-api-key")
+    )
+    status, data = await state.upstream.messages(
+        outbound,
+        api_key=forwarded_api_key,
+        version=request.headers.get("anthropic-version"),
+        beta=request.headers.get("anthropic-beta"),
+    )
+    upstream_ms = (time.perf_counter() - started) * 1000
+    if not isinstance(data, dict):
+        status, data = 502, anthropic_error(
+            "Upstream returned a non-JSON Messages body.", "api_error"
+        )
+    if status >= 400:
+        event = reported("upstream_error", scrub_ms, 0.0, upstream_ms, 0, response=data)
+        await record_event(redis, event)
+        log_telemetry(event, status)
+        return JSONResponse(status_code=status, headers=headers, content=data)
+
+    started = time.perf_counter()
+    try:
+        forward = await session_map.forward_map()
+    except RedisError:
+        forward = {}
+    unresolved = reinject_response(data, forward)
+    reinject_ms = (time.perf_counter() - started) * 1000
+    response_status = "state_loss" if unresolved else "ok"
+    overhead = round(round(scrub_ms, 1) + round(reinject_ms, 1), 1)
+    headers["X-Aegis-Overhead-Ms"] = f"{overhead:.1f}"
+    headers["X-Aegis-Unresolved"] = str(unresolved)
+    event = reported(
+        response_status, scrub_ms, reinject_ms, upstream_ms, unresolved, entity_counts, data
+    )
+    await record_event(redis, event)
+    log_telemetry(event, status)
     return JSONResponse(status_code=status, headers=headers, content=data)
 
 
