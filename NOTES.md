@@ -231,3 +231,12 @@
 
 - The existing one-page dashboard remains the product surface; this pass improves hierarchy, status clarity and post-scrub inspection without adding routes, settings or new backend contracts.
 - The dashboard displays the existing aggregate pipeline overhead as p50/p95 and does not invent separate rule/model latency fields that the current stats API does not expose.
+
+### Site architecture blueprint (2026-10-28)
+
+- Private inputs live under `private/` (`WEBSITE_DOCS_ACCESS_PLAN.md`, `STRATEGY.md`, `LANDING_COPY.md`); `docs/SITE_ARCHITECTURE.md` + `docs/nav.json` now incorporate them. Keep `private/` gitignored; do not paste strategy competitive content into public docs beyond IA structure.
+- Launch chrome may stay the slim `LANDING_COPY` nav; mega-menu is the venture-scale expansion.
+- Cloud lanes are roadmap only; Managed Nodes must be Nigeria-hosted or customer-VPC (never an offshore raw-PII hosted proxy).
+- Trust framework pages remain claim-safe primers; footer columns follow WEBSITE plan (Product / Community / Support / Company).
+- Docs target: Docusaurus `docs-site/` on `docs.<domain>`; Playground = no-login synthetic scrub API.
+- `GITHUB_URL` / Status URL placeholders in `nav.json` are build-time substitutions.

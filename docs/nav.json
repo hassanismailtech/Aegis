@@ -1,0 +1,480 @@
+{
+  "cta": {
+    "primary": { "label": "Playground", "href": "/playground" },
+    "secondary": { "label": "Design partners", "href": "/company/design-partners" }
+  },
+  "items": [
+    {
+      "id": "product",
+      "label": "Product",
+      "href": "/product",
+      "featured": {
+        "title": "Start with Open Source",
+        "description": "Self-host the Proxy, Scrubber, and Wire Tap with Docker Compose.",
+        "href": "/product/open-source",
+        "cta": "Explore open source"
+      },
+      "columns": [
+        {
+          "title": "Open Source",
+          "items": [
+            {
+              "title": "Open Source overview",
+              "href": "/product/open-source",
+              "description": "Self-hosted control plane for the AI data boundary."
+            },
+            {
+              "title": "Proxy",
+              "href": "/product/proxy",
+              "description": "OpenAI- and Anthropic-compatible path; change base_url."
+            },
+            {
+              "title": "Scrubber",
+              "href": "/product/scrubber",
+              "description": "Nigerian-aware detection into Placeholders."
+            },
+            {
+              "title": "Wire Tap",
+              "href": "/product/wire-tap",
+              "description": "Exact post-scrub bytes Upstream received."
+            },
+            {
+              "title": "Session Map & Reinjector",
+              "href": "/product/session-map",
+              "description": "Ephemeral Redis maps and stable Placeholders."
+            },
+            {
+              "title": "Dashboard",
+              "href": "/product/dashboard",
+              "description": "Live counts, timings, and Wire View."
+            }
+          ]
+        },
+        {
+          "title": "Cloud / Enterprise",
+          "items": [
+            {
+              "title": "Cloud overview",
+              "href": "/product/cloud",
+              "description": "Paid add-ons and Nigeria-hosted managed nodes—always in-boundary.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Managed Nodes",
+              "href": "/product/cloud/managed-nodes",
+              "description": "Nigeria-hosted or customer-VPC operated nodes.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Audit Exports",
+              "href": "/product/cloud/audit-exports",
+              "description": "Transfer-record and DPIA-input exports for DPOs.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Multi-Region Failover",
+              "href": "/product/cloud/multi-region-failover",
+              "description": "HA / Helm / failover for enterprise deploys.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Tenant Controls",
+              "href": "/product/cloud/tenant-controls",
+              "description": "Multi-tenant policy, keys, SSO/RBAC.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Jurisdiction Packs",
+              "href": "/product/cloud/jurisdiction-packs",
+              "description": "Beyond Nigeria: regional identifier packs.",
+              "badge": "Roadmap"
+            },
+            {
+              "title": "Enterprise Support",
+              "href": "/product/cloud/support",
+              "description": "Support channels and commercial SLAs.",
+              "badge": "Roadmap"
+            }
+          ]
+        },
+        {
+          "title": "Compare",
+          "items": [
+            {
+              "title": "OSS vs Cloud",
+              "href": "/product/compare",
+              "description": "What you run yourself vs what we operate."
+            },
+            {
+              "title": "Design partners",
+              "href": "/company/design-partners",
+              "description": "No public prices yet—apply for a pilot."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "solutions",
+      "label": "Solutions",
+      "href": "/solutions",
+      "featured": {
+        "title": "Evidence for audits",
+        "description": "Wire Tap and methodology for teams that need proof of what left the building.",
+        "href": "/solutions/audit-evidence",
+        "cta": "See evidence story"
+      },
+      "columns": [
+        {
+          "title": "By industry",
+          "items": [
+            {
+              "title": "Banking",
+              "href": "/solutions/banking",
+              "description": "BVN, NUBAN, and customer-name boundary control."
+            },
+            {
+              "title": "Healthcare",
+              "href": "/solutions/healthcare",
+              "description": "Reduce identifier exposure in clinical agent pilots."
+            },
+            {
+              "title": "Fintech",
+              "href": "/solutions/fintech",
+              "description": "Account, phone, and KYC fields at the model edge."
+            },
+            {
+              "title": "Public sector",
+              "href": "/solutions/public-sector",
+              "description": "Cross-border model use with Nigerian identifiers."
+            }
+          ]
+        },
+        {
+          "title": "By role",
+          "items": [
+            {
+              "title": "For Platform Engineers",
+              "href": "/solutions/platform-engineers",
+              "description": "base_url swap, Docker, SDKs, failure policy."
+            },
+            {
+              "title": "For DPOs & Compliance",
+              "href": "/solutions/dpo-compliance",
+              "description": "Evidence, methodology, and honest limitations."
+            },
+            {
+              "title": "For Security & AppSec",
+              "href": "/solutions/security",
+              "description": "Fail-closed scrub, logging rules, disclosure."
+            },
+            {
+              "title": "For AI & Agent Builders",
+              "href": "/solutions/ai-builders",
+              "description": "Tool calls, tool results, and streaming reinjection."
+            }
+          ]
+        },
+        {
+          "title": "Featured",
+          "items": [
+            {
+              "title": "Agent tool-call boundary",
+              "href": "/solutions/agent-tool-calls",
+              "description": "Scrub arguments and results before Upstream."
+            },
+            {
+              "title": "Cross-border LLM use",
+              "href": "/solutions/cross-border-llm",
+              "description": "Minimise regulated data sent offshore."
+            },
+            {
+              "title": "Evidence for audits",
+              "href": "/solutions/audit-evidence",
+              "description": "Telemetry and Wire Tap for internal review."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "developers",
+      "label": "Developers",
+      "href": "/developers",
+      "featured": {
+        "title": "Playground",
+        "description": "No-login demo with synthetic data. Agent saw vs Upstream saw.",
+        "href": "/playground",
+        "cta": "Open Playground"
+      },
+      "columns": [
+        {
+          "title": "Build",
+          "items": [
+            {
+              "title": "Quickstart",
+              "href": "/developers/quickstart",
+              "description": "Compose up, demo agent, optional dashboard."
+            },
+            {
+              "title": "OpenAI SDK",
+              "href": "/developers/openai",
+              "description": "Official SDK via base_url, streaming, tools."
+            },
+            {
+              "title": "Anthropic SDK",
+              "href": "/developers/anthropic",
+              "description": "Messages API path with streaming."
+            },
+            {
+              "title": "Deploy",
+              "href": "/developers/deploy",
+              "description": "Private network, TLS gateway, ephemeral Redis."
+            },
+            {
+              "title": "Playground",
+              "href": "/playground",
+              "description": "Interactive demo; synthetic PII only."
+            }
+          ]
+        },
+        {
+          "title": "Reference",
+          "items": [
+            {
+              "title": "Documentation",
+              "href": "/docs",
+              "description": "Guides, concepts, and configuration."
+            },
+            {
+              "title": "API Reference",
+              "href": "/docs/api",
+              "description": "Proxy and Aegis operational routes."
+            },
+            {
+              "title": "Entity types",
+              "href": "/docs/entities",
+              "description": "PHONE, BVN, NIN, ACCOUNT_NO, EMAIL, PERSON."
+            },
+            {
+              "title": "Configuration",
+              "href": "/docs/configuration",
+              "description": "Environment and runtime toggles."
+            },
+            {
+              "title": "Failure policy",
+              "href": "/docs/failure-policy",
+              "description": "Fail-closed scrub vs state_loss reinjection."
+            }
+          ]
+        },
+        {
+          "title": "Community",
+          "items": [
+            {
+              "title": "GitHub",
+              "href": "GITHUB_URL",
+              "description": "Source, issues, and releases.",
+              "external": true
+            },
+            {
+              "title": "Community",
+              "href": "/developers/community",
+              "description": "Contributing, conduct, and support."
+            },
+            {
+              "title": "Changelog",
+              "href": "/company/changelog",
+              "description": "What shipped and what changed."
+            },
+            {
+              "title": "Support",
+              "href": "/company/contact",
+              "description": "How to get help."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trust",
+      "label": "Trust & Security",
+      "href": "/trust",
+      "featured": {
+        "title": "Claims & Methodology",
+        "description": "How we measure leak tests and recall—and what we will not claim.",
+        "href": "/trust/methodology",
+        "cta": "Read methodology"
+      },
+      "columns": [
+        {
+          "title": "Architecture & proof",
+          "items": [
+            {
+              "title": "Security Architecture",
+              "href": "/trust/architecture",
+              "description": "Boundary, Session Map, and fail-closed paths."
+            },
+            {
+              "title": "Wire Tap & evidence",
+              "href": "/trust/wire-tap",
+              "description": "Post-scrub proof of Upstream traffic."
+            },
+            {
+              "title": "What Aegis does not do",
+              "href": "/trust/limitations",
+              "description": "Non-goals and honest limitations."
+            },
+            {
+              "title": "Claims & Methodology",
+              "href": "/trust/methodology",
+              "description": "Evidence rules for public claims."
+            }
+          ]
+        },
+        {
+          "title": "Operations & frameworks",
+          "items": [
+            {
+              "title": "Subprocessors",
+              "href": "/trust/subprocessors",
+              "description": "Processors for marketing site and Cloud."
+            },
+            {
+              "title": "Status",
+              "href": "/trust/status",
+              "description": "Service status for managed offerings."
+            },
+            {
+              "title": "Compliance Frameworks",
+              "href": "/trust/frameworks",
+              "description": "NDPA 2023 and GAID 2025 context pages."
+            },
+            {
+              "title": "NDPA 2023",
+              "href": "/trust/frameworks/ndpa-2023",
+              "description": "Cross-border context; not a compliance certificate."
+            },
+            {
+              "title": "GAID 2025",
+              "href": "/trust/frameworks/gaid-2025",
+              "description": "Guidance themes mapped at a high level."
+            },
+            {
+              "title": "Responsible disclosure",
+              "href": "/trust/security",
+              "description": "Report vulnerabilities privately."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "company",
+      "label": "Company",
+      "href": "/company",
+      "featured": {
+        "title": "Design Partner Program",
+        "description": "Banks, fintechs, and hospitals shaping the boundary control plane.",
+        "href": "/company/design-partners",
+        "cta": "Apply"
+      },
+      "columns": [
+        {
+          "title": "Company",
+          "items": [
+            {
+              "title": "About Us",
+              "href": "/company/about",
+              "description": "Mission and open-source stance."
+            },
+            {
+              "title": "Blog",
+              "href": "/company/blog",
+              "description": "Product and policy writing."
+            },
+            {
+              "title": "Changelog",
+              "href": "/company/changelog",
+              "description": "Release notes for operators."
+            },
+            {
+              "title": "Contact",
+              "href": "/company/contact",
+              "description": "Sales, press, and general inquiries."
+            },
+            {
+              "title": "Design Partner Program",
+              "href": "/company/design-partners",
+              "description": "Early access and structured feedback."
+            },
+            {
+              "title": "Careers",
+              "href": "/company/careers",
+              "description": "Roles when hiring is open."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "utilityLinks": [
+    { "label": "Docs", "href": "/docs" },
+    { "label": "GitHub", "href": "GITHUB_URL", "external": true }
+  ],
+  "footer": {
+    "columns": [
+      {
+        "title": "Product",
+        "links": [
+          { "label": "Open Source", "href": "/product/open-source" },
+          { "label": "Proxy", "href": "/product/proxy" },
+          { "label": "Scrubber", "href": "/product/scrubber" },
+          { "label": "Wire Tap", "href": "/product/wire-tap" },
+          { "label": "Cloud", "href": "/product/cloud" },
+          { "label": "Design partners", "href": "/company/design-partners" }
+        ]
+      },
+      {
+        "title": "Community",
+        "links": [
+          { "label": "GitHub", "href": "GITHUB_URL", "external": true },
+          { "label": "Docs", "href": "/docs" },
+          { "label": "Playground", "href": "/playground" },
+          { "label": "Changelog", "href": "/company/changelog" },
+          { "label": "Contributing", "href": "/developers/community" },
+          { "label": "Blog", "href": "/company/blog" }
+        ]
+      },
+      {
+        "title": "Support",
+        "links": [
+          { "label": "Security", "href": "/trust/security" },
+          { "label": "Claims & Methodology", "href": "/trust/methodology" },
+          { "label": "Frameworks", "href": "/trust/frameworks" },
+          { "label": "Subprocessors", "href": "/trust/subprocessors" },
+          { "label": "Status", "href": "/trust/status" },
+          { "label": "Contact", "href": "/company/contact" }
+        ]
+      },
+      {
+        "title": "Company",
+        "links": [
+          { "label": "About", "href": "/company/about" },
+          { "label": "Contact", "href": "/company/contact" },
+          { "label": "Design Partners", "href": "/company/design-partners" },
+          { "label": "Press kit", "href": "/press" },
+          { "label": "Careers", "href": "/company/careers" }
+        ]
+      }
+    ],
+    "legal": [
+      { "label": "Privacy Policy", "href": "/legal/privacy" },
+      { "label": "Terms of Use", "href": "/legal/terms" },
+      { "label": "DPA Template", "href": "/legal/dpa" },
+      { "label": "Acceptable Use", "href": "/legal/acceptable-use" },
+      { "label": "Cookie Notice", "href": "/legal/cookies" },
+      { "label": "License", "href": "/license" }
+    ]
+  }
+}
