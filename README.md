@@ -1,163 +1,265 @@
 # Aegis
 
-**Aegis is an OpenAI- and Anthropic-compatible PII proxy for agents handling regulated Nigerian data.** It scrubs sensitive values before they reach an external Upstream, then reinjects them only in the response returned to the caller. The Wire Tap and live dashboard make the boundary observable.
+> An inspectable data boundary for AI agents handling Nigerian identifiers.
 
-## The problem
+Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detected sensitive values with session-stable Placeholders before a request reaches an external Upstream, and its Reinjector restores known values only in the response returned to the caller. Wire Tap and telemetry make the post-scrub boundary reviewable. Aegis reduces leakage exposure; it does not guarantee perfect detection or make a transfer lawful.
 
-Banks, fintechs and hospitals want to use frontier-model agents, but sending BVNs, NINs, account numbers, phone numbers and names to offshore APIs creates NDPA 2023 cross-border-transfer exposure. Local models can be weaker, while a conventional proxy often does not understand tool calls or provide proof of what crossed the boundary.
+[![CI](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml)
+[![Evaluation](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](frontend/package.json)
 
-## Core Loop
+## Table of contents
 
-```text
- Agent / OpenAI / Anthropic SDK
-          |
-          v
- +-------------------+
- | Aegis Proxy       |
- | Scrubber          |  real PII -> Placeholders
- | Session Map       |  stable, reversible Redis state
- | Wire Tap          |  exact post-scrub request
- | Reinjector        |  Placeholders -> real PII in reply
- +---------+---------+
-           |
-           v
-      External Upstream
-      sees Placeholders only
-```
+- [Key features](#key-features)
+- [Architecture and system design](#architecture-and-system-design)
+- [Getting started](#getting-started)
+- [Configuration and environment variables](#configuration-and-environment-variables)
+- [Local development and scripts](#local-development-and-scripts)
+- [Deployment and production build](#deployment-and-production-build)
+- [API documentation and usage examples](#api-documentation-and-usage-examples)
+- [Testing suite](#testing-suite)
+- [Contributing](#contributing)
+- [Security and performance](#security-and-performance)
+- [License and authors](#license-and-authors)
 
-Every request is handled as one session: messages, assistant tool-call arguments and tool results are scrubbed; Upstream receives the post-scrub body; the response is reinjected without exposing the Session Map. The dashboard displays counts, timings and Wire Tap output, never pre-scrub text.
+## Key features
 
-## What is included now
+- OpenAI-compatible <code>POST /v1/chat/completions</code> and Anthropic-compatible <code>POST /v1/messages</code>, with tool calls, tool results, and streaming.
+- Nigerian-aware Scrubber layers for phone numbers, BVNs, NINs, account numbers, email addresses, and PERSON entities through patterns, gazetteer matching, and GLiNER.
+- Redis-backed Session Map for stable Placeholder numbering during the configured TTL. The supplied Compose stack disables Redis snapshots, AOF, and volumes.
+- Fail-closed pre-Upstream handling: a Scrubber or Session Map failure blocks the request. Reinjector state loss leaves unresolved Placeholders intact.
+- Wire Tap records exactly what Upstream received after scrubbing; telemetry carries safe counts, IDs, timings, and status, never pre-scrub text or Session Map contents.
+- Optional tenant API keys, request limits, rate limits, and signed dashboard tickets. Authentication is off unless <code>AEGIS_KEYS_FILE</code> is configured.
+- Separate Next.js dashboard and marketing applications, both using App Router, TypeScript, Tailwind CSS, shadcn/ui, and deterministic Geist Sans/Geist Mono font variables.
+- Offline mock Upstream, official SDK smoke tests, no-leak tests, held-out synthetic evaluation, and a deterministic Scrubber benchmark.
 
-- OpenAI-compatible `POST /v1/chat/completions` and Anthropic `POST /v1/messages`, including true streaming with hold-back buffer for `stream: true`.
-- Nigerian-aware Scrubber layers: patterns, gazetteer, NUBAN check digit validation, and GLiNER PERSON detection.
-- Redis-only Session Map with stable Placeholders and sliding TTL.
-- Tool-call and tool-result handling, tolerant Reinjector, and fail-closed scrub/state errors.
-- Per-tenant API key authentication, request/body limits, and rate limiting (authentication is off unless `AEGIS_KEYS_FILE` is set).
-- Signed dashboard tickets for browser-native SSE streams.
-- Redis-backed Telemetry Event stream, `/stats`, Wire Tap endpoint and synthetic seed endpoint.
-- Dark, high-contrast single-page dashboard at `frontend/`.
-- Offline mock Upstream, two-tool official SDK demo agent, leak test, recall evaluation and scrub benchmark.
+## Architecture and system design
 
-## Quickstart
+~~~mermaid
+flowchart LR
+    A[Agent or application] --> B[Aegis Proxy]
+    B --> C[Scrubber]
+    C --> D[Redis Session Map]
+    C --> E[External Upstream]
+    E --> F[Reinjector]
+    D --> F
+    F --> A
+    C --> G[Wire Tap and telemetry: post-scrub only]
+~~~
 
-Requirements: Docker Desktop. The demo agent needs Python 3.12 and [`uv`](https://docs.astral.sh/uv/); the optional dashboard needs Node.js 20+ and npm.
+The Proxy scrubs messages, assistant tool-call arguments, and tool results before the Upstream call. The Session Map temporarily associates each Placeholder with its original value for the current session. The Reinjector uses that Session Map after the response. If state is unavailable before the call, Aegis blocks; if it is unavailable during reinjection, Aegis returns unresolved Placeholders rather than guessing.
 
-### 1. Start the stack
+~~~text
+backend/       FastAPI Proxy, Scrubber, Reinjector, Redis integration, tests, scripts
+frontend/      Operational dashboard (Next.js)
+website/       Marketing and trust site (Next.js)
+demo/          Synthetic SDK demo inputs
+docs/          Requirements, claims register, metrics, and operating guides
+.github/       Pull-request template, code ownership, CI, evaluation, and publish workflows
+~~~
 
-From the repository root:
+## Getting started
 
-```powershell
+### Prerequisites
+
+| Tool | Required version | Purpose |
+| --- | --- | --- |
+| Git | Current stable | Clone the repository and create signed commits. |
+| Python | 3.12 or later | Run the Proxy, scripts, and tests. |
+| uv | Current stable | Resolve and run the Python workspace. |
+| Docker Desktop | Current stable, Compose v2 | Start Redis, the mock Upstream, and the Proxy locally. |
+| Node.js | 20 or later | Run the dashboard and marketing applications. |
+| npm | Bundled with Node.js | Install and build each Next.js app. |
+
+### Installation
+
+Clone the repository and create a local environment file. Never commit <code>.env</code> or put real personal data in it.
+
+~~~bash
+git clone https://github.com/hassanismailtech/Aegis.git
+cd Aegis
+cp .env.example .env
+uv sync --project backend
+npm --prefix frontend ci
+npm --prefix website ci
+~~~
+
+PowerShell equivalent for the environment file:
+
+~~~powershell
+Copy-Item .env.example .env
+~~~
+
+Start the complete local demo stack:
+
+~~~bash
 docker compose up --build
-```
+~~~
 
-This builds the backend image with CPU-only torch and the GLiNER model baked in, then starts:
+Local endpoints are <code>http://127.0.0.1:8000</code> for Aegis, <code>http://127.0.0.1:9000</code> for the mock Upstream, and <code>127.0.0.1:6379</code> for Redis. Confirm readiness without exposing request data:
 
-- `redis` on `127.0.0.1:6379` — ephemeral, with snapshots and AOF disabled and no volume.
-- `mock-upstream` on `127.0.0.1:9000` — the offline OpenAI-compatible Upstream.
-- `aegis` on `127.0.0.1:8000` — the Proxy. Its healthcheck polls `/readyz`, which returns 200 only when Redis answers and, with `NER_ENABLED=true`, the NER model is warm.
+~~~bash
+curl http://127.0.0.1:8000/readyz
+~~~
 
-No environment variables are required. The first build downloads the model; later starts reuse it from the image. Wait for `aegis` to report healthy (`docker compose ps`).
+In separate terminals, start the dashboard and marketing site:
 
-Check the running stack and print versions with:
+~~~bash
+npm --prefix frontend run dev
+npm --prefix website run dev
+~~~
 
-```powershell
-docker compose exec aegis aegis doctor
-```
+Set <code>NEXT_PUBLIC_AEGIS_URL=http://127.0.0.1:8000</code> for a separately deployed dashboard. Set <code>NEXT_PUBLIC_MARKETING_URL</code> in the dashboard and <code>NEXT_PUBLIC_APP_URL</code> in the marketing site to provide a seamless cross-application handoff.
 
-### 2. Run the demo agent
+## Configuration and environment variables
 
-In another terminal:
+All Proxy settings are read by <code>backend/app/config.py</code> from the repository-root <code>.env</code> file. Defaults are repository defaults, not production recommendations.
 
-```powershell
-uv run --project backend python demo/agent.py
-```
+| Variable | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| <code>UPSTREAM_BASE_URL</code> | URL | <code>http://localhost:9000/v1</code> | Yes | Base URL for the compatible Upstream. |
+| <code>UPSTREAM_API_KEY</code> | secret string | empty | No | Used instead of forwarding the caller Authorization header. |
+| <code>UPSTREAM_MODEL_OVERRIDE</code> | string | empty | No | Model name to force for Upstream requests. |
+| <code>REDIS_URL</code> | URL | <code>redis://localhost:6379/0</code> | Yes | Redis connection for Session Map and telemetry. |
+| <code>SESSION_TTL_SECONDS</code> | integer | <code>300</code> | No | Sliding Session Map expiration. |
+| <code>NER_ENABLED</code> | boolean | <code>true</code> | No | Enables the local GLiNER PERSON detector. |
+| <code>NER_MODEL</code> | string | <code>urchade/gliner_small-v2.1</code> | No | GLiNER model identifier. |
+| <code>NER_THRESHOLD</code> | float | <code>0.5</code> | No | PERSON detection threshold. |
+| <code>NER_TIMEOUT_MS</code> | integer | <code>2000</code> | No | Model-detection timeout before a request is blocked. |
+| <code>NER_RUNTIME</code> | enum | <code>torch</code> | No | <code>torch</code> or opt-in <code>onnx</code>. |
+| <code>NER_ONNX_DIR</code> / <code>NER_ONNX_FILE</code> | path / string | model path | No | ONNX model location. |
+| <code>NER_CACHE_TTL_SECONDS</code> / <code>NER_CACHE_MAX_ENTRIES</code> | integer | <code>300</code> / <code>512</code> | No | In-memory detector cache; TTL <code>0</code> disables it. |
+| <code>EVAL_RECALL_FLOOR</code> | float | <code>0.85</code> | No | Minimum PERSON recall floor for held-out evaluation. |
+| <code>FEE_USD_PER_1K_TOKENS</code> | float | <code>0.001</code> | No | Fee metadata rate for telemetry. |
+| <code>CORS_ORIGINS</code> | URL string | <code>http://localhost:3000</code> | No | Allowed dashboard origin. |
+| <code>DETECTOR_PACKS</code> | JSON array | <code>["ng"]</code> | No | Ordered detector packs to load. |
+| <code>AEGIS_DEMO_TOKEN</code> | secret string | empty | No | Optional shared guard for demo/deployment endpoints. |
+| <code>AEGIS_KEYS_FILE</code> | path | empty | No | Enables tenant API-key authentication when supplied. |
+| <code>AEGIS_TICKET_SECRET</code> | secret string | empty | No | HMAC key for dashboard SSE tickets; defaults to demo token. |
+| <code>AEGIS_INSECURE_DEV</code> | boolean | <code>false</code> | No | Development-only non-loopback startup override without keys. |
+| <code>BIND_HOST</code> | IP or hostname | <code>0.0.0.0</code> | No | Proxy bind host. |
+| <code>MAX_BODY_BYTES</code> / <code>MAX_MESSAGES</code> | integer | <code>1048576</code> / <code>200</code> | No | Request size and message-count limits. |
+| <code>RATE_LIMIT_CAPACITY</code> / <code>RATE_LIMIT_REFILL_PER_SECOND</code> | integer / float | <code>60</code> / <code>1.0</code> | No | Token-bucket settings when tenant keys are configured. |
+| <code>AUDIT_DB_PATH</code> | path | <code>data/audit.db</code> | No | Local path for the optional append-only audit log. |
+| <code>NEXT_PUBLIC_AEGIS_URL</code> | URL | local Proxy URL | Dashboard only | Browser-visible Proxy base URL. |
+| <code>NEXT_PUBLIC_AEGIS_TOKEN</code> | secret string | empty | Dashboard only | Optional dashboard demo token. |
+| <code>NEXT_PUBLIC_MARKETING_URL</code> | URL | empty | Dashboard only | Marketing origin. |
+| <code>NEXT_PUBLIC_APP_URL</code> | URL | empty | Marketing site only | Dashboard origin. |
 
-The demo prints two labeled panels. **AGENT SAW** contains the real customer values after reinjection. **UPSTREAM SAW** is loaded from the Wire Tap and contains Placeholders only.
+## Local development and scripts
 
-### 3. Start the dashboard
+| Task | Command | Notes |
+| --- | --- | --- |
+| Start services | <code>docker compose up --build</code> | Ephemeral Redis plus local mock Upstream. |
+| Proxy tests | <code>uv run --directory backend pytest -q</code> | Includes unit, integration, and leak tests. |
+| Held-out evaluation | <code>uv run --directory backend python scripts/eval_heldout.py --floor 0.85</code> | Synthetic project-authored set. |
+| Scrubber benchmark | <code>uv run --directory backend python scripts/bench_scrub.py</code> | Measured p50/p95, not a guarantee. |
+| OpenAI SDK smoke test | <code>uv run --directory backend python scripts/sdk_smoke.py</code> | Requires the local stack. |
+| Dashboard development | <code>npm --prefix frontend run dev</code> | Operational dashboard. |
+| Dashboard lint and build | <code>npm --prefix frontend run lint</code>, <code>npm --prefix frontend run build</code> | Quality gates. |
+| Marketing development | <code>npm --prefix website run dev</code> | Marketing site. |
+| Marketing lint and build | <code>npm --prefix website run lint</code>, <code>npm --prefix website run build</code> | Quality gates. |
 
-The compose stack is backend-only. In another terminal:
+## Deployment and production build
 
-```powershell
-cd frontend
-npm install
-$env:NEXT_PUBLIC_AEGIS_URL = "http://127.0.0.1:8000"
-npm run dev
-```
+Build the Proxy runtime image:
 
-Open `http://localhost:3000`. Select **Seed demo data** for an immediate synthetic view, or leave the dashboard open while the agent runs.
+~~~bash
+docker build --target runtime --tag aegis:local backend
+docker run --rm --publish 8000:8000 --env-file .env aegis:local
+~~~
 
-For a shared demo host, set the same optional access token in the repository-root `.env` used by compose and in the dashboard environment:
+Or use the reproducible local deployment:
 
-```dotenv
-AEGIS_DEMO_TOKEN=change-this-demo-secret
-NEXT_PUBLIC_AEGIS_TOKEN=change-this-demo-secret
-```
+~~~bash
+docker compose up --build --detach
+docker compose ps
+~~~
 
-The token protects chat, stats, events, Wire Tap and seed endpoints. Because a browser-native SSE connection cannot send an Authorization header, the dashboard exchanges the token for a 60-second signed ticket at `POST /v1/aegis/ticket` and puts only that ticket in the SSE query string. Use a private network or an authenticated gateway for real deployments.
+Before connecting a real Upstream, provide <code>UPSTREAM_BASE_URL</code>, provide an <code>UPSTREAM_API_KEY</code> or pass a caller Authorization header, set <code>AEGIS_KEYS_FILE</code> when authentication is required, use TLS and an authenticated network boundary, and never expose Redis directly.
 
-### 4. Run the leak test
+The dashboard and marketing site are independently deployable Next.js applications. Configure <code>NEXT_PUBLIC_MARKETING_URL</code> and <code>NEXT_PUBLIC_APP_URL</code> to connect the two deployments; shared Tailwind design tokens and explicit Geist font variables preserve a consistent handoff. The <code>ci</code> workflow builds both applications on every Pull Request and on <code>main</code>.
 
-```powershell
-cd backend
-uv run pytest -q --report
-```
+## API documentation and usage examples
 
-The report writes `aegis:leaktest` in Redis so the dashboard can show the latest result. No test output or persisted telemetry contains the Session Map.
+### Health and readiness
 
-## Switching to a real Upstream
+~~~bash
+curl http://127.0.0.1:8000/healthz
+curl http://127.0.0.1:8000/readyz
+~~~
 
-Copy `.env.example` to `.env` at the repository root and change only the Upstream settings:
+### OpenAI-compatible chat completion
 
-```dotenv
-UPSTREAM_BASE_URL=https://api.openai.com/v1
-UPSTREAM_API_KEY=sk-...
-UPSTREAM_MODEL_OVERRIDE=
-```
+Use synthetic, non-sensitive content when testing. Set the client base URL to Aegis; the SDK request shape remains standard.
 
-Compose forwards those three values into the `aegis` service. The proxy forwards `UPSTREAM_API_KEY` when set; otherwise it forwards the caller's `Authorization` header. Never commit `.env`, API keys, or customer data. Keep the dashboard origin in `CORS_ORIGINS` and expose the proxy only behind your network's normal TLS and access controls.
+~~~python
+from openai import OpenAI
 
-## Validation
+client = OpenAI(
+    base_url="http://127.0.0.1:8000/v1",
+    api_key="local-development-key",
+)
 
-```powershell
-cd backend
-uv run pytest -q
-uv run python scripts/eval_recall.py
-uv run python scripts/bench_scrub.py
+completion = client.chat.completions.create(
+    model="gpt-5-mini",
+    messages=[{"role": "user", "content": "Summarise this synthetic test note."}],
+)
 
-cd ..\frontend
-npm run build
-```
+print(completion.choices[0].message.content)
+~~~
 
-Recall and latency are measured, not promised. `eval_recall.py` reports per-type precision and recall on the checked-in synthetic regression set (220 project-authored sentences; not independent human-labelled data); `bench_scrub.py` reports pattern and NER p50/p95 on the demo machine.
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| <code>/healthz</code> | <code>GET</code> | Process health. |
+| <code>/readyz</code> | <code>GET</code> | Readiness, including Redis and detector warm-up state. |
+| <code>/v1/chat/completions</code> | <code>POST</code> | OpenAI-compatible chat completion path. |
+| <code>/v1/messages</code> | <code>POST</code> | Anthropic-compatible Messages path. |
+| <code>/v1/aegis/wiretap/{request_id}</code> | <code>GET</code> | Post-scrub Wire Tap record. |
+| <code>/v1/aegis/events</code> | <code>GET</code> | Server-sent telemetry events. |
+| <code>/v1/aegis/stats</code> | <code>GET</code> | Aggregate safe telemetry. |
+| <code>/v1/aegis/ticket</code> | <code>POST</code> | Short-lived dashboard SSE ticket. |
+| <code>/v1/aegis/_seed</code> | <code>POST</code> | Seeds synthetic dashboard telemetry. |
 
-## Honest limitations
+Do not expose Wire Tap, events, stats, ticket, or seed routes publicly without an authenticated boundary. They are operational interfaces and must never be used to handle real personal data in public demonstrations.
 
-- Names are model-detected and recall is measured, not guaranteed; structured IDs are rule-detected with checksum validation where applicable (e.g. NUBAN).
-- Evaluation set is synthetic and project-authored: on the 220-sentence set, structured types achieve 100.0% precision/recall, PERSON recall is 96.9% [93.5%, 98.6%], but PERSON precision is 61.9% [56.3%, 67.1%] due to over-redaction.
-- Deliberately obfuscated values such as leetspeak/spelled-out digits are not guaranteed to be detected; do not present the current Scrubber as an adversarial-evasion defense.
-- Cold model latency on long prompts (500+ words) can exceed the 2 s default timeout and return 503; rule layers run in ~0.15–0.22 ms (60 words), but cold model runs take ~350–440 ms (60 words) and ~3.2–4.3 s (500 words).
-- Authentication and rate limiting are off unless `AEGIS_KEYS_FILE` is provided. On non-loopback interfaces, Aegis refuses to start without keys unless `AEGIS_INSECURE_DEV=1`.
-- The mock Upstream is intentionally in-memory and is for offline demos, not production inference.
-- Redis is ephemeral (no persistence, snapshots and AOF disabled, no volume). There is no billing or user account management plane.
-- In-country deployment is a roadmap item, not a current compliance claim.
-- The Wire Tap is retained for a short TTL and should be treated as sensitive operational data even though it contains only post-scrub text.
+## Testing suite
 
-## Five answers
+~~~bash
+uv run --directory backend pytest -q
+uv run --directory backend python scripts/eval_heldout.py --floor 0.85
+NER_ENABLED=false uv run --directory backend python scripts/bench_scrub.py
+npm --prefix frontend run lint && npm --prefix frontend run build
+npm --prefix website run lint && npm --prefix website run build
+~~~
 
-- **What problem?** Aegis reduces the risk of regulated Nigerian PII crossing to an external LLM while preserving agent quality.
-- **Who is the user?** Tobi, a platform engineer, changes `base_url`, while Femi, a DPO, gets proof of what left the building.
-- **What does it do now?** It scrubs chat, Messages and agent tool traffic, relays OpenAI and Anthropic streams with hold-back, reinjects responses, and shows live evidence.
-- **What did we build in 24 hours?** A working proxy, Nigerian entity pack, Redis Session Map, Wire Tap, leak test, mock Upstream, SDK demo and dashboard.
-- **What next?** Improve PERSON precision to reduce over-redaction, add parallel chunking for long prompts, expand entity coverage and ship an in-country operating model.
+The no-leak tests assert that the project’s synthetic planted values do not appear in the Wire Tap. The held-out evaluator reports precision and recall for a 220-sentence synthetic, project-authored set; its current floor is PERSON recall <code>0.85</code>. Coverage reporting is not currently configured; required branch checks are test results, the pattern benchmark, held-out evaluation, web builds, dependency audits, and secret scanning.
 
-## Architecture and security posture
+## Contributing
 
-Aegis is intentionally stateless at the process layer: Redis is the only Session Map and telemetry store, so horizontal proxy replicas share state without introducing a second database. Scrubbing and Session Map writes happen before the Upstream call; if either fails, the request is blocked. If state is lost after the call, the Reinjector leaves unknown Placeholders intact rather than guessing. Telemetry is best effort and contains counts, IDs and timings only.
+Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [docs/CLAIMS.md](docs/CLAIMS.md) before opening a change.
 
-The proxy supports per-tenant API keys, request/body size limits and token-bucket rate limiting when configured via `AEGIS_KEYS_FILE`. When `AEGIS_KEYS_FILE` is omitted, authentication is off (startup on non-loopback addresses is refused unless `AEGIS_INSECURE_DEV=1`). TLS termination, secret rotation, and enterprise billing/user management remain deployment responsibilities. Run the service on a private network or behind an authenticated TLS gateway before connecting a real Upstream.
+- Work from a short-lived <code>feat/</code>, <code>fix/</code>, <code>docs/</code>, or <code>chore/</code> branch.
+- Use Conventional Commits and sign every commit: <code>git commit -s -m "feat(proxy): add safe behaviour"</code>.
+- Keep tests, claim updates, dependency licence checks, and documentation in the same Pull Request as the implementation.
+- Never add real personal data to tests, fixtures, screenshots, issues, or Pull Requests.
 
-## License
+### Pull Request Process
 
-See [LICENSE](./LICENSE).
+Direct pushes to main are blocked. All changes must be submitted via Pull Request. Automated status checks (pytest, pattern benchmarks, and leak tests) must pass before merging.
+
+The active <code>Protect main</code> ruleset also blocks deletions and force-pushes. Do not bypass failed checks; request code-owner review and merge only after required <code>ci</code> and <code>eval</code> checks succeed.
+
+## Security and performance
+
+Security reports belong in GitHub private security advisories or at <code>security@aegisproxy.dev</code>; use synthetic reproduction data only. See [SECURITY.md](SECURITY.md) for scope and disclosure guidance.
+
+Aegis enforces strict branch protection rules. The default branch requires passing CI/CD status checks and blocks force-pushes to maintain an immutable audit log of all source code changes.
+
+The process layer uses temporary Redis state and the supplied Compose configuration disables Redis persistence. Aegis measures detector behaviour rather than promising latency. On the project’s development laptop, the rule layer measured roughly p50 <code>0.15–0.22 ms</code> for a 60-word prompt; model results depend on workload, runtime, hardware, and cache state. Review [docs/metrics.txt](docs/metrics.txt) and [docs/CLAIMS.md](docs/CLAIMS.md) before publishing performance or quality claims.
+
+## License and authors
+
+Aegis is released under the [MIT License](LICENSE). Copyright © 2026 Hassan Ismail. Maintained by Hassan Ismail and contributors.

@@ -2,6 +2,12 @@
 
 ## ASSUMPTIONS
 
+### Font and CI hardening
+
+- Both deployed Next.js applications use `next/font` with Geist Sans and Geist Mono. The self-referencing Tailwind font variables caused unreliable fallback selection, so the variables now point explicitly at the generated Geist CSS variables.
+- The existing GitHub Actions workflows are the checks selected by the active `Protect main` ruleset. The marketing-site build and deterministic pattern benchmark are added to make the protected-branch policy cover every shipped interface and the named benchmark requirement.
+- The current deployment URLs are `website-woad-six-53.vercel.app` for marketing and `aegis-liard-pi.vercel.app` for the dashboard. They are documented as the cross-link transition origins until custom product domains are assigned.
+
 ### Marketing site scaffold
 
 - `website/` already contains the Next.js App Router, Tailwind, and the requested shadcn/ui `navigation-menu`, `button`, `sheet`, and `card` components, so this step extends that scaffold and adds no dependencies.
