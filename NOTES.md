@@ -2,6 +2,12 @@
 
 ## ASSUMPTIONS
 
+### Marketing site scaffold
+
+- `website/` already contains the Next.js App Router, Tailwind, and the requested shadcn/ui `navigation-menu`, `button`, `sheet`, and `card` components, so this step extends that scaffold and adds no dependencies.
+- The requested `/security` and `/compliance/ndpa` stubs remain as explicit launch aliases while the site blueprint’s longer-term Trust routes are added in later steps.
+- The five route pages deliberately render no body content; their shared marketing layout renders the complete responsive navigation while page copy remains out of scope.
+
 ### Step 1: Contracts and state
 
 - Added `backend/app/__init__.py` (not spelled out in PRD 10) so `app` imports reliably as a regular package under `uv run` and pytest.
