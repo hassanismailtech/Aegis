@@ -1,4 +1,4 @@
-"""`aegis doctor`: check Redis, the NER model and Upstream; print versions."""
+"""Aegis CLI: `aegis doctor`, `aegis audit verify`."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import asyncio
 import platform
 import sys
 from dataclasses import dataclass
+from datetime import date
 from importlib.metadata import PackageNotFoundError, version
 from urllib.parse import urlsplit
 
@@ -130,16 +131,43 @@ def _print_report(checks: list[Check]) -> None:
         print(f"  {check.name:<12} {status:<4} {check.detail}")
 
 
+async def audit_verify(audit_db: str) -> int:
+    """Verify the hash-chained audit log."""
+    from app.audit import verify_sync, VerifyResult
+
+    result = await asyncio.to_thread(verify_sync, audit_db)
+    if result.ok:
+        print(f"audit: ok ({result.events} events, head={result.head[:16]}...)")
+        return 0
+    else:
+        print(
+            f"audit: FAIL at event {result.event_id or '?'}: {result.reason} "
+            f"({result.events} events checked)"
+        )
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="aegis")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("doctor", help="check Redis, the NER model and Upstream")
+
+    audit_parser = subparsers.add_parser("audit", help="audit log operations")
+    audit_sub = audit_parser.add_subparsers(dest="audit_command", required=True)
+    verify_parser = audit_sub.add_parser("verify", help="verify hash chain integrity")
+    verify_parser.add_argument(
+        "--db", default=None, help="path to audit SQLite DB (default from AUDIT_DB_PATH)"
+    )
+
     args = parser.parse_args(argv)
     if args.command == "doctor":
         print("Checking Redis, NER model and Upstream ...", file=sys.stderr)
         checks = asyncio.run(_run_checks())
         _print_report(checks)
         return 0 if all(check.ok for check in checks) else 1
+    if args.command == "audit" and args.audit_command == "verify":
+        db_path = args.db or settings.audit_db_path
+        return asyncio.run(audit_verify(db_path))
     return 2
 
 

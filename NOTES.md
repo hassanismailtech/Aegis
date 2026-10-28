@@ -218,3 +218,12 @@
 - A transport error after headers cannot change the HTTP status; the relay ends, and telemetry records `upstream_error`. Telemetry write failures remain best-effort.
 - Mock Upstream now emits real SSE for both protocols. It deliberately splits the first Placeholder across three chunks in text and tool arguments (and Anthropic `input_json_delta`) so integration tests exercise split reinjection.
 - Tests: `backend/tests/test_streaming.py` (24 tests) covers every tolerant PRD 7.1 form split at every character of the Placeholder and of the whole sentence, one-character-at-a-time streaming, unknown Placeholders, the 40-character cap, an earlier single `[` not stealing a Placeholder's closing bracket, OpenAI `n > 1`, and official-SDK Anthropic streaming for text and tool input. Existing OpenAI stream tests now reassemble split tool arguments instead of assuming one delta.
+
+### Fix-First and Repo Hygiene (2026-10-28)
+
+- `docker-compose.yml` binds published ports for Redis (6379), aegis (8000), and mock-upstream (9000) strictly to `127.0.0.1` to prevent exposure on external interfaces on public networks or VMs.
+- Lifespan startup guard (`app/main.py`) checks `bind_host` and refuses to run on non-loopback addresses without `AEGIS_KEYS_FILE` unless `AEGIS_INSECURE_DEV=1` is explicitly set. Dedicated `AEGIS_TICKET_SECRET` is required whenever tenant auth is enabled (no fallback to demo token).
+- Dashboard (`frontend/`) has all third-party analytics (`@vercel/analytics`, `@vercel/speed-insights`) removed per DESIGN.md privacy principles.
+- Public claims in `README.md` aligned with `docs/CLAIMS.md` and `docs/metrics.txt` (reflecting true streaming, Anthropic adapter, and honest evaluation caveats).
+- `backend/app/audit.py` provides an append-only, SHA-256 hash-chained verification log (`aegis audit verify`) for Telemetry Events stored in SQLite (`AUDIT_DB_PATH`). This is cryptographic compliance evidence logging, not proxy session state (which remains strictly in ephemeral Redis per AGENTS rule 8). All generated `*.db` files are gitignored.
+
