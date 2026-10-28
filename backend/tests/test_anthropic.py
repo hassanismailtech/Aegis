@@ -109,6 +109,7 @@ async def aegis_client(
     monkeypatch.setattr(settings, "ner_enabled", False)
     if keys_file is not None:
         monkeypatch.setattr(settings, "aegis_keys_file", str(keys_file))
+        monkeypatch.setattr(settings, "aegis_ticket_secret", "test-anthropic-ticket-secret")
     async with LifespanManager(aegis_app, startup_timeout=300):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=aegis_app),

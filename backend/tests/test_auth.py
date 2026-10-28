@@ -70,6 +70,7 @@ async def _client(
 ) -> AsyncIterator[httpx.AsyncClient]:
     _upstream_state.update(content=content, authorization=None, calls=0)
     monkeypatch.setattr(settings, "aegis_keys_file", str(path))
+    monkeypatch.setattr(settings, "aegis_ticket_secret", "test-auth-ticket-secret")
     monkeypatch.setattr(settings, "ner_enabled", False)
     upstream = Upstream(
         base_url="http://auth-upstream.test/v1",

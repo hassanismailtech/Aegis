@@ -43,6 +43,8 @@ async def _client(
     monkeypatch: pytest.MonkeyPatch, path: Path | None = None
 ) -> AsyncIterator[httpx.AsyncClient]:
     monkeypatch.setattr(settings, "aegis_keys_file", str(path) if path else "")
+    if path:
+        monkeypatch.setattr(settings, "aegis_ticket_secret", "test-limits-ticket-secret")
     monkeypatch.setattr(settings, "ner_enabled", False)
     upstream = Upstream(
         base_url="http://mock-upstream.test/v1",
