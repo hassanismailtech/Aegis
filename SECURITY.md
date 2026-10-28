@@ -29,3 +29,9 @@ Good-faith research that follows this policy, avoids privacy violations and serv
 
 ## Deployment guidance
 Run Aegis inside your own network behind TLS, set `AEGIS_KEYS_FILE`, never expose Redis, and treat the Wire Tap as sensitive operational data.
+
+## Development & Supply Chain Security
+
+Aegis enforces strict branch protection rules. The default branch requires passing CI/CD status checks and blocks force-pushes to maintain an immutable audit log of all source code changes.
+
+The required GitHub Actions checks run the backend test and leak-test suite, the deterministic pattern benchmark, held-out recall evaluation, frontend and marketing-site builds, dependency audits, and secret scanning. Repository maintainers should keep the `Protect main` ruleset active and require those checks before a Pull Request can merge.

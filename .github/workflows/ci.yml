@@ -3,6 +3,11 @@ on:
   push: { branches: [main] }
   pull_request:
 permissions: { contents: read }
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -23,13 +28,18 @@ jobs:
           key: hf-gliner-${{ runner.os }}-${{ hashFiles('backend/uv.lock') }}
       - run: uv sync --frozen
         working-directory: backend
-      - run: uv run pytest -q
+      - name: Unit, integration, and leak tests
+        run: uv run pytest -q
         working-directory: backend
         env:
           REDIS_URL: redis://localhost:6379/0
           NER_TIMEOUT_MS: "10000"
-      - name: Dependency audit (non-blocking at first)
-        continue-on-error: true
+      - name: Pattern benchmark
+        run: uv run python scripts/bench_scrub.py
+        working-directory: backend
+        env:
+          NER_ENABLED: "false"
+      - name: Dependency audit
         run: uvx pip-audit
         working-directory: backend
   frontend:
@@ -44,7 +54,18 @@ jobs:
         working-directory: frontend
       - run: npm audit --omit=dev
         working-directory: frontend
-        continue-on-error: true
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: website/package-lock.json }
+      - run: npm ci
+        working-directory: website
+      - run: npm run lint && npm run build
+        working-directory: website
+      - run: npm audit --omit=dev
+        working-directory: website
   secrets:
     runs-on: ubuntu-latest
     steps:

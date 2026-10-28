@@ -25,5 +25,11 @@ Before a PR: `uv run pytest -q`, `uv run python scripts/eval_heldout.py --floor 
 ## PR checklist
 Tests added and passing; no new logging of bodies or secrets; claims policy respected; CHANGELOG updated under *Unreleased*; new dependencies justified and licence-checked (Apache-2.0, MIT or BSD).
 
+## Pull Request Process
+
+Direct pushes to main are blocked. All changes must be submitted via Pull Request. Automated status checks (pytest, pattern benchmarks, and leak tests) must pass before merging.
+
+Use a short-lived branch named `feat/<area>-<summary>`, `fix/<area>-<summary>`, `docs/<summary>`, or `chore/<summary>`. Open the PR against `main`, use Conventional Commits, sign commits with the DCO, and request review from the code owners. Required checks are the `ci` backend, frontend, website, and secrets jobs, plus the `eval` held-out recall job. Do not merge by overriding a failed or skipped required check.
+
 ## Conduct and security
 See `CODE_OF_CONDUCT.md`. Report vulnerabilities privately per `SECURITY.md`.
