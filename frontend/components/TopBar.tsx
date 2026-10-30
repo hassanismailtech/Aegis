@@ -18,10 +18,10 @@ export function TopBar({ stats, connection }: TopBarProps) {
     : "not run";
 
   return (
-    <header className="border-b border-white/10 bg-zinc-950/75 px-4 py-4 backdrop-blur-xl md:px-8">
+    <header className="border-b border-white/10 bg-zinc-950/85 px-4 py-4 backdrop-blur-xl md:px-8">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-5">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-cyan-300 text-zinc-950 ring-1 ring-cyan-200/40">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-cyan-300 text-zinc-950 ring-1 ring-cyan-200/40 transition-transform duration-150 ease-in-out hover:scale-[1.03]">
             <ShieldCheck className="size-5" />
           </div>
           <div>
@@ -48,7 +48,7 @@ export function TopBar({ stats, connection }: TopBarProps) {
 
 function Metric({ label, value, hint, danger = false, neutral = false }: { label: string; value: string; hint: string; danger?: boolean; neutral?: boolean }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2.5">
+    <div className="rounded-lg border border-white/10 bg-white/[0.025] px-3 py-2.5 transition-colors duration-150 ease-in-out hover:bg-white/[0.045]">
       <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">{label}</p>
       <p className={`mt-1 font-mono text-lg font-semibold tabular-nums ${danger ? "text-rose-300" : neutral ? "text-amber-200" : "text-foreground"}`}>{value}</p>
       <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>

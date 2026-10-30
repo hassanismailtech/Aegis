@@ -2,6 +2,10 @@
 
 ## ASSUMPTIONS
 
+- The requested modernisation is a presentation pass over the existing marketing and dashboard information architecture. It introduces no routes, data contracts, third-party tracking, customer logos, or claims.
+- The landing-page telemetry specimen is illustrative and intentionally contains only post-scrub Placeholders and bounded metadata. It does not represent a real customer request and cannot reveal pre-scrub text or Session Map contents.
+- Motion is limited to decorative entry and telemetry-sweep treatment; `prefers-reduced-motion` disables it. Live telemetry itself is not animated as a performance or security signal.
+
 ### Font and CI hardening
 
 - Both deployed Next.js applications use `next/font` with Geist Sans and Geist Mono. The self-referencing Tailwind font variables caused unreliable fallback selection, so the variables now point explicitly at the generated Geist CSS variables.

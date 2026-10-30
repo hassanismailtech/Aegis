@@ -15,7 +15,7 @@ const colors = ["#22d3ee", "#a78bfa", "#34d399", "#fbbf24", "#fb7185", "#60a5fa"
 export function EntityChart({ stats }: { stats: Stats }) {
   const data = ENTITY_TYPES.map((type) => ({ type, count: stats.entities[type] }));
   return (
-    <Card>
+    <Card className="panel-surface">
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-sm">Entities by type <span className="text-xs font-normal text-muted-foreground">all observed</span></CardTitle>
       </CardHeader>
