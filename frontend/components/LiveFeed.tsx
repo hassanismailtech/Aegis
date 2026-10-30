@@ -17,7 +17,7 @@ export function LiveFeed({
   onSelect: (event: TelemetryEvent) => void;
 }) {
   return (
-    <Card className="min-h-[480px]">
+    <Card className="panel-surface min-h-[480px]">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Activity className="size-4 text-cyan-300" /> Live feed
@@ -38,7 +38,7 @@ export function LiveFeed({
                   key={event.request_id}
                   type="button"
                   onClick={() => onSelect(event)}
-                  className={`w-full border-l-2 px-4 py-3 text-left transition-colors hover:bg-white/[0.04] ${selectedId === event.request_id ? "border-cyan-300 bg-cyan-300/[0.07]" : "border-transparent"}`}
+                  className={`w-full border-l-2 px-4 py-3 text-left transition-colors duration-150 ease-in-out hover:bg-white/[0.04] ${selectedId === event.request_id ? "border-cyan-300 bg-cyan-300/[0.07]" : "border-transparent"}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex min-w-0 items-center gap-2 font-mono text-xs text-cyan-200"><StatusIcon status={event.status} /><span className="truncate">{event.request_id}</span></span>

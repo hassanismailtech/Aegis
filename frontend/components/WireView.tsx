@@ -32,7 +32,7 @@ export function WireView({ event }: { event: TelemetryEvent | null }) {
   }
 
   return (
-    <Card>
+    <Card className="panel-surface">
       <CardHeader className="border-b border-white/10">
         <CardTitle className="flex items-center gap-2 text-sm"><Cable className="size-4 text-cyan-300" /> Wire View <span className="ml-auto text-xs font-normal text-muted-foreground">post-scrub only</span></CardTitle>
       </CardHeader>

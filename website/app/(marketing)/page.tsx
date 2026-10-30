@@ -11,6 +11,7 @@ import {
   Server,
   ShieldCheck,
   Terminal,
+  Waypoints,
   X,
 } from "lucide-react";
 
@@ -84,23 +85,61 @@ function CopyComposeCommand() {
   );
 }
 
+function TelemetryPreview() {
+  return (
+    <div className="telemetry-preview relative overflow-hidden rounded-xl bg-zinc-950 p-1 ring-1 ring-white/10">
+      <div className="relative overflow-hidden rounded-[0.7rem] border border-white/10 bg-zinc-900/80">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-400">
+            <span className="size-2 rounded-full bg-cyan-300" />
+            Telemetry control plane
+          </div>
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-emerald-300"><span className="size-1.5 rounded-full bg-emerald-300" />post-scrub only</span>
+        </div>
+        <div className="grid gap-px bg-white/10 sm:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-3 bg-zinc-900 p-4">
+            <div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Boundary event</span><span className="font-mono text-xs text-cyan-200">req_••••</span></div>
+            <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.05] p-3 font-mono text-xs leading-6 text-cyan-100">
+              <span className="text-zinc-500">Upstream received</span><br />
+              Transfer to <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[PERSON_1]]</span><br />
+              <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[BVN_1]]</span> · <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[PHONE_1]]</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 font-mono text-[10px] tabular-nums text-zinc-400">
+              <div><p className="text-zinc-500">entities</p><p className="mt-1 text-base text-zinc-100">03</p></div>
+              <div><p className="text-zinc-500">status</p><p className="mt-1 text-base text-emerald-300">ok</p></div>
+              <div><p className="text-zinc-500">Wire Tap</p><p className="mt-1 text-base text-cyan-200">ready</p></div>
+            </div>
+          </div>
+          <div className="bg-zinc-950 p-4">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500"><Waypoints className="size-3 text-cyan-300" /> Entity flow</div>
+            <div className="mt-4 space-y-3">
+              {["PERSON", "BVN", "PHONE"].map((label, index) => <div key={label} className="flex items-center gap-3"><span className="w-12 font-mono text-[10px] text-zinc-400">{label}</span><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${76 - index * 18}%` }} /></div><span className="font-mono text-[10px] tabular-nums text-zinc-500">0{index + 1}</span></div>)}
+            </div>
+            <div className="mt-5 border-t border-white/10 pt-3 font-mono text-[10px] leading-5 text-zinc-500">No pre-scrub text.<br />No Session Map contents.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
     <main>
-      <section className="relative isolate overflow-hidden px-4 pb-24 pt-24 sm:px-6 lg:pb-32 lg:pt-32">
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(ellipse_at_top,rgba(6,182,212,0.14),transparent_60%)]" />
+      <section className="hero-grid relative isolate overflow-hidden px-4 pb-24 pt-24 sm:px-6 lg:pb-32 lg:pt-32">
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[radial-gradient(ellipse_at_top,rgba(6,182,212,0.16),transparent_62%)]" />
         <div className="mx-auto max-w-5xl text-center">
-          <p className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1 font-mono text-xs text-cyan-200 ring-1 ring-white/10">
+          <p className="reveal-up inline-flex items-center gap-2 rounded-full bg-zinc-900/90 px-3 py-1 font-mono text-xs text-cyan-200 ring-1 ring-white/10">
             <ShieldCheck className="size-3.5" aria-hidden="true" />
             Open-source PII firewall for AI agents
           </p>
-          <h1 className="mx-auto mt-6 max-w-4xl text-balance text-4xl font-semibold tracking-[-0.045em] text-zinc-50 sm:text-6xl lg:text-7xl">
+          <h1 className="reveal-up mx-auto mt-6 max-w-4xl text-balance text-4xl font-semibold tracking-[-0.055em] text-zinc-50 sm:text-6xl lg:text-7xl">
             Keep Nigerian customer identifiers out of your LLM prompts.
           </h1>
-          <p className="mx-auto mt-6 max-w-3xl text-pretty text-base leading-7 text-zinc-300 sm:text-lg">
+          <p className="reveal-up mx-auto mt-6 max-w-3xl text-pretty text-base leading-7 text-zinc-300 sm:text-lg">
             Aegis is an OpenAI-compatible proxy that runs inside your network. It swaps BVNs, NINs, account numbers, phone numbers, emails and names for Placeholders before a request reaches an external model, then puts the real values back in the reply. A Wire Tap shows exactly what left.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <div className="reveal-up mt-8 flex flex-wrap justify-center gap-3">
             <CopyComposeCommand />
             <Button variant="outline" render={<Link href="#evidence" />} className="h-10 border-white/10 bg-zinc-900 px-4 text-zinc-100 hover:bg-zinc-800">
               Read the evidence
@@ -109,7 +148,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl bg-zinc-900 text-left ring-1 ring-white/10">
+        <div className="reveal-up mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl bg-zinc-900/95 text-left ring-1 ring-white/10">
           <div className="flex h-10 items-center gap-2 border-b border-white/10 px-4">
             <span className="size-2 rounded-full bg-zinc-600" />
             <span className="size-2 rounded-full bg-zinc-600" />
@@ -127,14 +166,15 @@ export default function HomePage() {
             </code>
           </pre>
         </div>
+        <div className="reveal-up mx-auto mt-5 max-w-4xl"><TelemetryPreview /></div>
       </section>
 
-      <section className="border-y border-white/10 bg-zinc-900/50 px-4 py-20 sm:px-6 lg:py-28">
+      <section className="section-grid border-y border-white/10 bg-zinc-900/50 px-4 py-20 sm:px-6 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">NDPA 2023 and GAID 2025</p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {problemCards.map((card) => (
-              <Card key={card.title} className="bg-zinc-900 ring-white/10">
+              <Card key={card.title} className="group bg-zinc-900 transition-colors duration-150 ease-in-out hover:bg-zinc-800/80 ring-white/10">
                 <CardHeader>
                   <CardTitle className="text-lg text-zinc-50">{card.title}</CardTitle>
                 </CardHeader>
@@ -145,7 +185,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="how-it-works" className="px-4 py-20 sm:px-6 lg:py-28">
+      <section id="how-it-works" className="section-grid px-4 py-20 sm:px-6 lg:py-28">
         <div className="mx-auto max-w-7xl">
           <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">How it works</p>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">

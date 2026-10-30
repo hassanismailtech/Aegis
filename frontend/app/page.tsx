@@ -57,10 +57,11 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="telemetry-shell min-h-screen">
       <TopBar stats={displayedStats} connection={connection} />
       <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:p-8">
-        <section className="flex flex-col justify-between gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end">
+        <section className="relative flex flex-col justify-between gap-5 overflow-hidden rounded-xl border border-white/10 bg-zinc-900/50 p-5 md:flex-row md:items-end md:p-6">
+          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_88%_0%,rgba(6,182,212,0.12),transparent_28rem)]" />
           <div>
             <p className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-cyan-300"><ShieldCheck className="size-3.5" /> Boundary activity</p>
             <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-white md:text-4xl">Know what your agent sends upstream.</h1>
@@ -74,7 +75,7 @@ export default function Home() {
             <Button onClick={seed} disabled={seeding}><Database className="size-4" />{seeding ? "Seeding..." : "Seed demo data"}</Button>
           </section>
         )}
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <div className="dashboard-grid grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
           <LiveFeed events={events} selectedId={selected?.request_id ?? null} onSelect={setSelected} />
           <EntityChart stats={displayedStats} />
         </div>
