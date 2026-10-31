@@ -2,6 +2,8 @@
 
 ## ASSUMPTIONS
 
+- Source code is Apache-2.0. CC BY 4.0 applies only to original prose and diagrams under `docs/`; code, configuration, and code blocks remain Apache-2.0.
+
 - The requested modernisation is a presentation pass over the existing marketing and dashboard information architecture. It introduces no routes, data contracts, third-party tracking, customer logos, or claims.
 - The landing-page telemetry specimen is illustrative and intentionally contains only post-scrub Placeholders and bounded metadata. It does not represent a real customer request and cannot reveal pre-scrub text or Session Map contents.
 - Motion is limited to decorative entry and telemetry-sweep treatment; `prefers-reduced-motion` disables it. Live telemetry itself is not animated as a performance or security signal.

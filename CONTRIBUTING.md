@@ -7,6 +7,7 @@ Thanks for helping. Aegis handles sensitive data paths, so we are strict about t
 - **DCO:** sign every commit (`git commit -s`). By signing you certify the Developer Certificate of Origin (developercertificate.org).
 - **Conventional commits** (`feat(scope): ...`, `fix:`, `docs:`, `test:`, `chore:`). They drive the changelog.
 - **Claims policy:** public text (README, docs, site) may only state what `docs/CLAIMS.md` marks OK, and numbers must come from `docs/metrics.txt`.
+- **Licensing:** source code, configuration, and code blocks are contributed under Apache-2.0. Original prose and diagrams in `docs/` are contributed under CC BY 4.0; see `LICENSE` and `docs/LICENSE.md`.
 - AI-assisted contributions are welcome. You are responsible for the result: review every line, run the tests.
 
 ## Dev setup
