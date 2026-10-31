@@ -231,7 +231,9 @@ function MobileLink({ href, children }: { href: string; children: React.ReactNod
 }
 
 export function GlobalNav() {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_ENABLED === "true"
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : undefined;
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -286,7 +288,7 @@ export function GlobalNav() {
         </NavigationMenu>
 
         <div className="hidden items-center gap-2 lg:flex">
-          {appUrl && <Button variant="ghost" render={<a href={appUrl} />} className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">Dashboard</Button>}
+          {dashboardUrl && <Button variant="ghost" render={<a href={dashboardUrl} />} className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">Dashboard</Button>}
           <Button variant="outline" render={<Link href="/pricing" />} className="border-white/10 bg-zinc-900 text-zinc-100 hover:bg-zinc-800">
             Design partners
           </Button>
@@ -317,7 +319,7 @@ export function GlobalNav() {
               <MobileLink href="/docs">Docs</MobileLink>
               <MobileLink href="/pricing">Pricing</MobileLink>
               <MobileLink href="/playground">Playground</MobileLink>
-              {appUrl && <SheetClose render={<a href={appUrl} />} className="rounded-md px-3 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 ease-in-out hover:bg-white/[0.06] hover:text-cyan-200">Dashboard</SheetClose>}
+              {dashboardUrl && <SheetClose render={<a href={dashboardUrl} />} className="rounded-md px-3 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 ease-in-out hover:bg-white/[0.06] hover:text-cyan-200">Dashboard</SheetClose>}
             </nav>
           </SheetContent>
         </Sheet>

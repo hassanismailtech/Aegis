@@ -22,25 +22,26 @@ Set these public environment variables in production and preview deployments:
 | Project | Variable | Value |
 |---|---|---|
 | Marketing | `NEXT_PUBLIC_APP_URL` | `https://aegis-liard-pi.vercel.app` during transition; `https://app.<domain>` after cutover |
+| Marketing | `NEXT_PUBLIC_DASHBOARD_ENABLED` | `false` until the dashboard is ready for visitor navigation; `true` after cutover |
 | Dashboard | `NEXT_PUBLIC_MARKETING_URL` | `https://website-woad-six-53.vercel.app` during transition; `https://<domain>` after cutover |
 | Marketing | `NEXT_PUBLIC_SITE_URL` | Marketing origin for metadata and canonical URLs |
 | Dashboard | `NEXT_PUBLIC_AEGIS_URL` | Customer-controlled Aegis Proxy URL |
 
-The marketing navigation displays **Dashboard** only when `NEXT_PUBLIC_APP_URL` is configured. The dashboard displays **Aegis site** only when `NEXT_PUBLIC_MARKETING_URL` is configured. This makes the cross-link explicit across production and preview without hard-coding a transient Vercel URL.
+The marketing navigation displays **Dashboard** only when `NEXT_PUBLIC_APP_URL` is configured and `NEXT_PUBLIC_DASHBOARD_ENABLED=true`. Until then, the public marketing site is the sole visitor entry point and does not link to an incomplete telemetry deployment. The dashboard displays **Aegis site** only when `NEXT_PUBLIC_MARKETING_URL` is configured.
 
 ## Rollout
 
 1. Keep the marketing Vercel project on root directory `website` and the dashboard project on root directory `frontend`; never swap either root directory.
-2. Add the cross-link variables above to both current Vercel projects in Production and Preview scopes, then verify the links on their current deployment URLs.
+2. Add `NEXT_PUBLIC_MARKETING_URL` to the dashboard in Production and Preview scopes. Keep `NEXT_PUBLIC_DASHBOARD_ENABLED=false` on marketing until the dashboard is ready.
 3. Deploy the dashboard without assigning the apex domain. Verify that it connects only to its configured Aegis Proxy and never shows pre-scrub text or Session Map content.
-4. Assign the production hosts: apex or `www` for marketing, `app` subdomain for the dashboard. Update the cross-link variables above in both production and preview scopes.
+4. Assign the production hosts: apex or `www` for marketing, `app` subdomain for the dashboard. Update the cross-link variables above in both production and preview scopes, then set `NEXT_PUBLIC_DASHBOARD_ENABLED=true` on marketing.
 5. Verify browser navigation in both directions, session behaviour, CSP/CORS rules for the dashboard-to-Proxy connection, and the marketing redirects (`/security`, `/privacy`, `/terms`, `/acceptable-use`).
 6. After a stable observation period, retire only obsolete aliases or the previous dashboard deployment. Do not delete the project history as part of this rollout.
 
 ## UI/UX contract
 
 - Both apps use dark `zinc-950` foundations, `zinc-900` surfaces, cyan/mint accents, Geist Sans, Geist Mono metrics, 1px rings, and 150ms transitions.
-- Marketing explains the system and routes visitors to Playground or the dashboard. The dashboard remains deliberately operational: live safe telemetry, entity counts, timings, and post-scrub Wire Tap data.
+- Marketing explains the system and is the public visitor destination. It routes visitors to Playground and enables its dashboard link only after the operational surface is ready. The dashboard remains deliberately operational: live safe telemetry, entity counts, timings, and post-scrub Wire Tap data.
 - The product boundary remains visible everywhere: no pre-scrub text or Session Map values are shown in marketing, dashboard, logging, or cross-origin telemetry.
 - Marketing has no Vercel Web Analytics or Speed Insights import in the root layout. Do not introduce it into the dashboard without a separate privacy review and cookie-notice update.
 
