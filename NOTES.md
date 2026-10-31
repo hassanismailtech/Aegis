@@ -3,6 +3,7 @@
 ## ASSUMPTIONS
 
 - Source code is Apache-2.0. CC BY 4.0 applies only to original prose and diagrams under `docs/`; code, configuration, and code blocks remain Apache-2.0.
+- Public contact email addresses are intentionally omitted until the Aegis domain is secured. General reports use GitHub Issues; vulnerability reports use GitHub private security advisories. Synthetic email fixtures remain because they validate the Scrubber's EMAIL detection.
 
 - The requested modernisation is a presentation pass over the existing marketing and dashboard information architecture. It introduces no routes, data contracts, third-party tracking, customer logos, or claims.
 - The landing-page telemetry specimen is illustrative and intentionally contains only post-scrub Placeholders and bounded metadata. It does not represent a real customer request and cannot reveal pre-scrub text or Session Map contents.
@@ -29,7 +30,7 @@
 
 - `docs/SITE_ARCHITECTURE.md` is implemented as a data-driven marketing route tree so every documented non-blog route has a substantive page without duplicating route components.
 - The organisation's legal name, address, applicable privacy contact, effective dates, general contact channel, processor list, and contract terms are not in the repository. Privacy, terms, DPA, cookie, contact, design-partner, and subprocessor pages therefore clearly remain in publication review rather than presenting invented or binding legal content.
-- `security@aegisproxy.dev` and `aegisproxy.dev` are used only where already published in `SECURITY.md`; `NEXT_PUBLIC_SITE_URL` overrides the sitemap, robots, and security.txt origin during deployment.
+- Public repository contact routes use GitHub Issues for general reports and GitHub private security advisories for vulnerability reports; `NEXT_PUBLIC_SITE_URL` overrides the sitemap, robots, and security.txt origin during deployment.
 - The existing Vercel project is retained as the marketing project, with a separate future dashboard project (`aegis-app`) recommended in `docs/WEBSITE_APP_INTEGRATION.md`; no Vercel project, domain, or environment variable was changed by this implementation.
 
 ### Step 1: Contracts and state

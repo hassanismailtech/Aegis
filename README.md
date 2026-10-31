@@ -254,7 +254,7 @@ The active <code>Protect main</code> ruleset also blocks deletions and force-pus
 
 ## Security and performance
 
-Security reports belong in GitHub private security advisories or at <code>security@aegisproxy.dev</code>; use synthetic reproduction data only. See [SECURITY.md](SECURITY.md) for scope and disclosure guidance.
+Security reports belong in GitHub private security advisories; use synthetic reproduction data only. See [SECURITY.md](SECURITY.md) for scope and disclosure guidance.
 
 Aegis enforces strict branch protection rules. The default branch requires passing CI/CD status checks and blocks force-pushes to maintain an immutable audit log of all source code changes.
 
