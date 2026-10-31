@@ -6,7 +6,7 @@ Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detect
 
 [![CI](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml)
 [![Evaluation](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](frontend/package.json)
 
@@ -254,7 +254,7 @@ The active <code>Protect main</code> ruleset also blocks deletions and force-pus
 
 ## Security and performance
 
-Security reports belong in GitHub private security advisories or at <code>security@aegisproxy.dev</code>; use synthetic reproduction data only. See [SECURITY.md](SECURITY.md) for scope and disclosure guidance.
+Security reports belong in GitHub private security advisories; use synthetic reproduction data only. See [SECURITY.md](SECURITY.md) for scope and disclosure guidance.
 
 Aegis enforces strict branch protection rules. The default branch requires passing CI/CD status checks and blocks force-pushes to maintain an immutable audit log of all source code changes.
 
@@ -262,4 +262,8 @@ The process layer uses temporary Redis state and the supplied Compose configurat
 
 ## License and authors
 
-Aegis is released under the [MIT License](LICENSE). Copyright © 2026 Hassan Ismail. Maintained by Hassan Ismail and contributors.
+Aegis source code is released under the [Apache License 2.0](LICENSE). Original
+prose and diagrams in [`docs/`](docs/) are released under
+[CC BY 4.0](docs/LICENSE.md); source code, configuration, and code blocks in
+those documents remain Apache-2.0. Copyright © 2026 Hassan Ismail. Maintained
+by Hassan Ismail and contributors.
