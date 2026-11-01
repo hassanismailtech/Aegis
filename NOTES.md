@@ -2,6 +2,8 @@
 
 ## ASSUMPTIONS
 
+- The planted Nigerian identifier regression set uses synthetic BVN and NIN-shaped values only. Their CI floors are independently configurable and default to 100% because these formats are deterministic pattern detections, not model-derived measurements.
+
 - Source code is Apache-2.0. CC BY 4.0 applies only to original prose and diagrams under `docs/`; code, configuration, and code blocks remain Apache-2.0.
 - Public contact email addresses are intentionally omitted until the Aegis domain is secured. General reports use GitHub Issues; vulnerability reports use GitHub private security advisories. Synthetic email fixtures remain because they validate the Scrubber's EMAIL detection.
 - The current marketing deployment is the public entry point. Dashboard navigation remains disabled unless `NEXT_PUBLIC_DASHBOARD_ENABLED=true` is intentionally configured alongside a dashboard URL.

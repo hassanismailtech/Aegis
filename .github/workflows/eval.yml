@@ -40,3 +40,25 @@ jobs:
           NER_TIMEOUT_MS: "10000"
           EVAL_RECALL_FLOOR: ${{ vars.EVAL_RECALL_FLOOR || '0.85' }}
         run: uv run python scripts/eval_heldout.py --floor "$EVAL_RECALL_FLOOR"
+
+      - name: Planted BVN recall floor
+        working-directory: backend
+        env:
+          # These fixtures measure deterministic Nigerian ID patterns only.
+          NER_ENABLED: "false"
+          EVAL_BVN_RECALL_FLOOR: ${{ vars.EVAL_BVN_RECALL_FLOOR || '1.00' }}
+        run: >-
+          uv run python scripts/eval_heldout.py
+          --file ../demo/nigerian_id_eval.jsonl --type BVN
+          --floor "$EVAL_BVN_RECALL_FLOOR"
+
+      - name: Planted NIN recall floor
+        working-directory: backend
+        env:
+          # These fixtures measure deterministic Nigerian ID patterns only.
+          NER_ENABLED: "false"
+          EVAL_NIN_RECALL_FLOOR: ${{ vars.EVAL_NIN_RECALL_FLOOR || '1.00' }}
+        run: >-
+          uv run python scripts/eval_heldout.py
+          --file ../demo/nigerian_id_eval.jsonl --type NIN
+          --floor "$EVAL_NIN_RECALL_FLOOR"
