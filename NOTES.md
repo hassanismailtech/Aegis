@@ -2,8 +2,11 @@
 
 ## ASSUMPTIONS
 
+- The planted Nigerian identifier regression set uses synthetic BVN and NIN-shaped values only. Their CI floors are independently configurable and default to 100% because these formats are deterministic pattern detections, not model-derived measurements.
+
 - Source code is Apache-2.0. CC BY 4.0 applies only to original prose and diagrams under `docs/`; code, configuration, and code blocks remain Apache-2.0.
 - Public contact email addresses are intentionally omitted until the Aegis domain is secured. General reports use GitHub Issues; vulnerability reports use GitHub private security advisories. Synthetic email fixtures remain because they validate the Scrubber's EMAIL detection.
+- The current marketing deployment is the public entry point. Dashboard navigation remains disabled unless `NEXT_PUBLIC_DASHBOARD_ENABLED=true` is intentionally configured alongside a dashboard URL.
 
 - The requested modernisation is a presentation pass over the existing marketing and dashboard information architecture. It introduces no routes, data contracts, third-party tracking, customer logos, or claims.
 - The landing-page telemetry specimen is illustrative and intentionally contains only post-scrub Placeholders and bounded metadata. It does not represent a real customer request and cannot reveal pre-scrub text or Session Map contents.
@@ -158,7 +161,7 @@
 
 ### Phase 1 task 3: aegis doctor CLI
 
-- Added a `project.scripts` entry point `aegis = "app.cli:main"` and a Hatchling build backend so `uv run aegis doctor` works from the backend project. Hatchling is a build-time dependency only, MIT licensed; the Docker builder keeps `--no-install-project`, so the runtime image does not include Hatchling. The runtime image gets a small `/usr/local/bin/aegis` wrapper that runs `python -m app.cli`.
+- Added a `project.scripts` entry point `aegis = "app.cli:main"` and a Hatchling build backend so `uv run aegis doctor` works from the backend project. Hatchling is a build-time dependency only; the Docker builder keeps `--no-install-project`, so the runtime image does not include Hatchling. The runtime image gets a small `/usr/local/bin/aegis` wrapper that runs `python -m app.cli`.
 - The builder also builds the project wheel and copies only its `aegis-*.dist-info` into the runtime venv. This makes `aegis doctor` report the real Aegis version inside the image instead of `unknown`; the application code still runs from `/app`. The metadata layer sits after the model-bake layer, so changing the version does not re-download the model.
 - `aegis doctor` checks Redis with a 3-second connect/read timeout, warms the GLiNER model off the event loop when `NER_ENABLED=true`, and probes the Upstream base URL with a 3-second `httpx` GET. Any HTTP response counts as reachable; the check is connectivity, not an inference call.
 - Doctor prints Python, Aegis, FastAPI, Pydantic, redis-py, httpx, torch, transformers and GLiNER versions plus three `ok`/`FAIL` lines. It exits 1 if any check fails, 0 otherwise. `NER_ENABLED=false` reports the model as intentionally disabled and still exits 0.

@@ -1,0 +1,22 @@
+{
+  "within_session": {
+    "messages": [
+      {"role": "user", "content": "Chinedu Okafor asked Ada Obi to approve the transfer."},
+      {"role": "assistant", "content": "Ada Obi confirmed Chinedu Okafor's request."}
+    ],
+    "expected": [
+      {"role": "user", "content": "[[PERSON_1]] asked [[PERSON_2]] to approve the transfer."},
+      {"role": "assistant", "content": "[[PERSON_2]] confirmed [[PERSON_1]]'s request."}
+    ]
+  },
+  "across_sessions": [
+    {
+      "messages": [{"role": "user", "content": "Chinedu Okafor referred Ada Obi."}],
+      "expected": [{"role": "user", "content": "[[PERSON_1]] referred [[PERSON_2]]."}]
+    },
+    {
+      "messages": [{"role": "user", "content": "Ada Obi opened a new conversation."}],
+      "expected": [{"role": "user", "content": "[[PERSON_1]] opened a new conversation."}]
+    }
+  ]
+}

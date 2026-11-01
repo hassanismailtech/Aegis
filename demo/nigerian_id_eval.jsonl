@@ -1,0 +1,6 @@
+{"text":"BVN: 22334455667","spans":[{"start":5,"end":16,"type":"BVN","text":"22334455667"}]}
+{"text":"Please verify BVN 44556677889 today.","spans":[{"start":18,"end":29,"type":"BVN","text":"44556677889"}]}
+{"text":"BVN 2 2 3 3 4 4 5 5 6 6 7","spans":[{"start":4,"end":25,"type":"BVN","text":"2 2 3 3 4 4 5 5 6 6 7"}]}
+{"text":"NIN: 33445566778","spans":[{"start":5,"end":16,"type":"NIN","text":"33445566778"}]}
+{"text":"National Identification Number: 55667788990","spans":[{"start":32,"end":43,"type":"NIN","text":"55667788990"}]}
+{"text":"NIN 3-3-4-4-5-5-6-6-7-7-8","spans":[{"start":4,"end":25,"type":"NIN","text":"3-3-4-4-5-5-6-6-7-7-8"}]}

@@ -4,6 +4,10 @@
 
 Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detected sensitive values with session-stable Placeholders before a request reaches an external Upstream, and its Reinjector restores known values only in the response returned to the caller. Wire Tap and telemetry make the post-scrub boundary reviewable. Aegis reduces leakage exposure; it does not guarantee perfect detection or make a transfer lawful.
 
+## Visit the public website
+
+[Visit Aegis on the web →](https://website-woad-six-53.vercel.app)
+
 [![CI](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml)
 [![Evaluation](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
@@ -111,7 +115,7 @@ npm --prefix frontend run dev
 npm --prefix website run dev
 ~~~
 
-Set <code>NEXT_PUBLIC_AEGIS_URL=http://127.0.0.1:8000</code> for a separately deployed dashboard. Set <code>NEXT_PUBLIC_MARKETING_URL</code> in the dashboard and <code>NEXT_PUBLIC_APP_URL</code> in the marketing site to provide a seamless cross-application handoff.
+Set <code>NEXT_PUBLIC_AEGIS_URL=http://127.0.0.1:8000</code> for a separately deployed dashboard. The public entry point is the [Aegis website](https://website-woad-six-53.vercel.app). Configure <code>NEXT_PUBLIC_MARKETING_URL</code> in the dashboard; enable a marketing-to-dashboard link only after the dashboard is ready for visitors.
 
 ## Configuration and environment variables
 
@@ -146,7 +150,8 @@ All Proxy settings are read by <code>backend/app/config.py</code> from the repos
 | <code>NEXT_PUBLIC_AEGIS_URL</code> | URL | local Proxy URL | Dashboard only | Browser-visible Proxy base URL. |
 | <code>NEXT_PUBLIC_AEGIS_TOKEN</code> | secret string | empty | Dashboard only | Optional dashboard demo token. |
 | <code>NEXT_PUBLIC_MARKETING_URL</code> | URL | empty | Dashboard only | Marketing origin. |
-| <code>NEXT_PUBLIC_APP_URL</code> | URL | empty | Marketing site only | Dashboard origin. |
+| <code>NEXT_PUBLIC_APP_URL</code> | URL | empty | Marketing site only | Dashboard origin; inactive unless dashboard navigation is enabled. |
+| <code>NEXT_PUBLIC_DASHBOARD_ENABLED</code> | boolean | <code>false</code> | Marketing site only | Set to <code>true</code> only when the dashboard is ready for public navigation. |
 
 ## Local development and scripts
 
@@ -180,7 +185,7 @@ docker compose ps
 
 Before connecting a real Upstream, provide <code>UPSTREAM_BASE_URL</code>, provide an <code>UPSTREAM_API_KEY</code> or pass a caller Authorization header, set <code>AEGIS_KEYS_FILE</code> when authentication is required, use TLS and an authenticated network boundary, and never expose Redis directly.
 
-The dashboard and marketing site are independently deployable Next.js applications. Configure <code>NEXT_PUBLIC_MARKETING_URL</code> and <code>NEXT_PUBLIC_APP_URL</code> to connect the two deployments; shared Tailwind design tokens and explicit Geist font variables preserve a consistent handoff. The <code>ci</code> workflow builds both applications on every Pull Request and on <code>main</code>.
+The dashboard and marketing site are independently deployable Next.js applications. The [marketing site](https://website-woad-six-53.vercel.app) is the public entry point. Configure <code>NEXT_PUBLIC_MARKETING_URL</code> to return dashboard users to marketing, and set both <code>NEXT_PUBLIC_APP_URL</code> and <code>NEXT_PUBLIC_DASHBOARD_ENABLED=true</code> only when the dashboard is ready for visitor navigation. Shared Tailwind design tokens and explicit Geist font variables preserve a consistent handoff. The <code>ci</code> workflow builds both applications on every Pull Request and on <code>main</code>.
 
 ## API documentation and usage examples
 

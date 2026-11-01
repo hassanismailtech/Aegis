@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import pytest
 
 from app.detectors.base import Span
 from app.schemas import EntityType
 from scripts import eval_heldout
+
+_NIGERIAN_ID_FIXTURE = Path(__file__).resolve().parents[2] / "demo" / "nigerian_id_eval.jsonl"
 
 
 def _row(text: str, *spans: tuple[int, int, EntityType, str]) -> dict:
@@ -35,6 +38,16 @@ def test_validate_rows_catches_bad_offsets() -> None:
         eval_heldout.validate_rows(
             [{"text": "Ada Obi", "spans": [{"start": 0, "end": 7, "type": "PERSON", "text": "Ada"}]}]
         )
+
+
+def test_nigerian_identifier_fixture_measures_bvn_and_nin_separately() -> None:
+    rows = eval_heldout._load(_NIGERIAN_ID_FIXTURE)
+    scores = eval_heldout.score_rows([
+        {"spans": row["spans"], "detected": []}
+        for row in rows
+    ])
+    assert scores["BVN"].gold == 3
+    assert scores["NIN"].gold == 3
     with pytest.raises(ValueError):
         eval_heldout.validate_rows(
             [{"text": "Ada Obi", "spans": [{"start": 0, "end": 7, "type": "NOPE", "text": "Ada Obi"}]}]
