@@ -20,10 +20,13 @@ services:
       - "127.0.0.1:9000:9000"
 
   aegis:
+    image: ${SECLUME_IMAGE:-aegis:local}
     build:
       context: ./backend
       target: runtime
     environment:
+      BIND_HOST: "0.0.0.0"
+      AEGIS_INSECURE_DEV: "1" # safe only because the ports are published on 127.0.0.1
       REDIS_URL: redis://redis:6379/0
       UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:-http://mock-upstream:9000/v1}
       UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}

@@ -141,9 +141,10 @@ All Proxy settings are read by <code>backend/app/config.py</code> from the repos
 | <code>DETECTOR_PACKS</code> | JSON array | <code>["ng"]</code> | No | Ordered detector packs to load. |
 | <code>AEGIS_DEMO_TOKEN</code> | secret string | empty | No | Optional shared guard for demo/deployment endpoints. |
 | <code>AEGIS_KEYS_FILE</code> | path | empty | No | Enables tenant API-key authentication when supplied. |
-| <code>AEGIS_TICKET_SECRET</code> | secret string | empty | No | HMAC key for dashboard SSE tickets; defaults to demo token. |
+| <code>AEGIS_TICKET_SECRET</code> | secret string | empty | With tenant keys | Dedicated HMAC key required when <code>AEGIS_KEYS_FILE</code> is configured; otherwise falls back to the demo token or a process-local random secret. |
 | <code>AEGIS_INSECURE_DEV</code> | boolean | <code>false</code> | No | Development-only non-loopback startup override without keys. |
-| <code>BIND_HOST</code> | IP or hostname | <code>0.0.0.0</code> | No | Proxy bind host. |
+| <code>BIND_HOST</code> | IP or hostname | <code>127.0.0.1</code> | No | Bind address checked at startup and used by the Docker entrypoint. |
+| <code>SECLUME_IMAGE</code> | image reference | <code>aegis:local</code> | Compose only | Image name used for the Proxy build and service. |
 | <code>MAX_BODY_BYTES</code> / <code>MAX_MESSAGES</code> | integer | <code>1048576</code> / <code>200</code> | No | Request size and message-count limits. |
 | <code>RATE_LIMIT_CAPACITY</code> / <code>RATE_LIMIT_REFILL_PER_SECOND</code> | integer / float | <code>60</code> / <code>1.0</code> | No | Token-bucket settings when tenant keys are configured. |
 | <code>AUDIT_DB_PATH</code> | path | <code>data/audit.db</code> | No | Local path for the optional append-only audit log. |
@@ -173,15 +174,25 @@ Build the Proxy runtime image:
 
 ~~~bash
 docker build --target runtime --tag aegis:local backend
-docker run --rm --publish 8000:8000 --env-file .env aegis:local
 ~~~
 
-Or use the reproducible local deployment:
+The Proxy refuses startup when <code>BIND_HOST</code> is non-loopback and tenant-key authentication is disabled, unless <code>AEGIS_INSECURE_DEV=1</code> is explicitly set. Wildcard addresses <code>0.0.0.0</code> and <code>::</code> are not loopback. When tenant keys are configured, a dedicated <code>AEGIS_TICKET_SECRET</code> is required even with the development override. Direct Uvicorn commands must use the same <code>--host</code> as <code>BIND_HOST</code>; the guard checks configuration, not Uvicorn's independently supplied arguments.
+
+For a standalone container, first provide container-reachable Redis and Upstream URLs in <code>.env</code>. This development example binds inside the container while publishing only on host loopback:
+
+~~~bash
+docker run --rm --publish 127.0.0.1:8000:8000 --env-file .env \
+  --env BIND_HOST=0.0.0.0 --env AEGIS_INSECURE_DEV=1 aegis:local
+~~~
+
+Or use the local Compose deployment:
 
 ~~~bash
 docker compose up --build --detach
 docker compose ps
 ~~~
+
+Compose explicitly sets <code>BIND_HOST=0.0.0.0</code> and <code>AEGIS_INSECURE_DEV=1</code>. This unauthenticated development configuration is suitable only while published ports remain on <code>127.0.0.1</code> and the host is trusted; do not expose it through a public reverse proxy. <code>SECLUME_IMAGE</code> selects the Proxy image name and defaults to <code>aegis:local</code>.
 
 Before connecting a real Upstream, provide <code>UPSTREAM_BASE_URL</code>, provide an <code>UPSTREAM_API_KEY</code> or pass a caller Authorization header, set <code>AEGIS_KEYS_FILE</code> when authentication is required, use TLS and an authenticated network boundary, and never expose Redis directly.
 

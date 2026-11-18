@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging as _logging
 import time
@@ -56,8 +57,13 @@ _startup_logger = _logging.getLogger("aegis.startup")
 
 
 def _is_loopback(host: str) -> bool:
-    """True for 127.x.x.x, ::1, localhost, and the 0.0.0.0 default (listens locally too)."""
-    return host in ("127.0.0.1", "::1", "localhost", "0.0.0.0")
+    host = host.strip().strip("[]").lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def build_upstream() -> Upstream:

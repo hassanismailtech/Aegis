@@ -85,6 +85,9 @@ RUN groupadd --system aegis \
     && chmod 0755 /usr/local/bin/aegis \
     && chown -R aegis:aegis /home/aegis /app
 
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh
+
 USER aegis
 
 EXPOSE 8000
@@ -92,4 +95,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=6 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
