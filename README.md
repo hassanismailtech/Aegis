@@ -117,42 +117,14 @@ npm --prefix website run dev
 
 Set <code>NEXT_PUBLIC_AEGIS_URL=http://127.0.0.1:8000</code> for a separately deployed dashboard. The public entry point is the [Aegis website](https://website-woad-six-53.vercel.app). Configure <code>NEXT_PUBLIC_MARKETING_URL</code> in the dashboard; enable a marketing-to-dashboard link only after the dashboard is ready for visitors.
 
-## Configuration and environment variables
+## Operating guides
 
-All Proxy settings are read by <code>backend/app/config.py</code> from the repository-root <code>.env</code> file. Defaults are repository defaults, not production recommendations.
+- [Local quickstart](docs/quickstart.md): Compose, a synthetic chat-client check, dashboard inspection and cleanup.
+- [Configuration](docs/configuration.md): complete Python defaults, working-directory behavior, Compose overrides and public browser settings.
+- [Security model](docs/security-model.md): trust boundary, attacker capabilities, existing controls and remaining risks.
+- [Limitations](docs/limitations.md): detection evidence, Session continuity, retention and verification gaps.
 
-| Variable | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| <code>UPSTREAM_BASE_URL</code> | URL | <code>http://localhost:9000/v1</code> | Yes | Base URL for the compatible Upstream. |
-| <code>UPSTREAM_API_KEY</code> | secret string | empty | No | Used instead of forwarding the caller Authorization header. |
-| <code>UPSTREAM_MODEL_OVERRIDE</code> | string | empty | No | Model name to force for Upstream requests. |
-| <code>REDIS_URL</code> | URL | <code>redis://localhost:6379/0</code> | Yes | Redis connection for Session Map and telemetry. |
-| <code>SESSION_TTL_SECONDS</code> | integer | <code>300</code> | No | Sliding Session Map expiration. |
-| <code>NER_ENABLED</code> | boolean | <code>true</code> | No | Enables the local GLiNER PERSON detector. |
-| <code>NER_MODEL</code> | string | <code>urchade/gliner_small-v2.1</code> | No | GLiNER model identifier. |
-| <code>NER_THRESHOLD</code> | float | <code>0.5</code> | No | PERSON detection threshold. |
-| <code>NER_TIMEOUT_MS</code> | integer | <code>2000</code> | No | Model-detection timeout before a request is blocked. |
-| <code>NER_RUNTIME</code> | enum | <code>torch</code> | No | <code>torch</code> or opt-in <code>onnx</code>. |
-| <code>NER_ONNX_DIR</code> / <code>NER_ONNX_FILE</code> | path / string | model path | No | ONNX model location. |
-| <code>NER_CACHE_TTL_SECONDS</code> / <code>NER_CACHE_MAX_ENTRIES</code> | integer | <code>300</code> / <code>512</code> | No | In-memory detector cache; TTL <code>0</code> disables it. |
-| <code>EVAL_RECALL_FLOOR</code> | float | <code>0.85</code> | No | Minimum PERSON recall floor for held-out evaluation. |
-| <code>FEE_USD_PER_1K_TOKENS</code> | float | <code>0.001</code> | No | Fee metadata rate for telemetry. |
-| <code>CORS_ORIGINS</code> | URL string | <code>http://localhost:3000</code> | No | Allowed dashboard origin. |
-| <code>DETECTOR_PACKS</code> | JSON array | <code>["ng"]</code> | No | Ordered detector packs to load. |
-| <code>AEGIS_DEMO_TOKEN</code> | secret string | empty | No | Optional shared guard for demo/deployment endpoints. |
-| <code>AEGIS_KEYS_FILE</code> | path | empty | No | Enables tenant API-key authentication when supplied. |
-| <code>AEGIS_TICKET_SECRET</code> | secret string | empty | With tenant keys | Dedicated HMAC key required when <code>AEGIS_KEYS_FILE</code> is configured; otherwise falls back to the demo token or a process-local random secret. |
-| <code>AEGIS_INSECURE_DEV</code> | boolean | <code>false</code> | No | Development-only non-loopback startup override without keys. |
-| <code>BIND_HOST</code> | IP or hostname | <code>127.0.0.1</code> | No | Bind address checked at startup and used by the Docker entrypoint. |
-| <code>SECLUME_IMAGE</code> | image reference | <code>aegis:local</code> | Compose only | Image name used for the Proxy build and service. |
-| <code>MAX_BODY_BYTES</code> / <code>MAX_MESSAGES</code> | integer | <code>1048576</code> / <code>200</code> | No | Request size and message-count limits. |
-| <code>RATE_LIMIT_CAPACITY</code> / <code>RATE_LIMIT_REFILL_PER_SECOND</code> | integer / float | <code>60</code> / <code>1.0</code> | No | Token-bucket settings when tenant keys are configured. |
-| <code>AUDIT_DB_PATH</code> | path | <code>data/audit.db</code> | No | Local path for the optional append-only audit log. |
-| <code>NEXT_PUBLIC_AEGIS_URL</code> | URL | local Proxy URL | Dashboard only | Browser-visible Proxy base URL. |
-| <code>NEXT_PUBLIC_AEGIS_TOKEN</code> | secret string | empty | Dashboard only | Optional dashboard demo token. |
-| <code>NEXT_PUBLIC_MARKETING_URL</code> | URL | empty | Dashboard only | Marketing origin. |
-| <code>NEXT_PUBLIC_APP_URL</code> | URL | empty | Marketing site only | Dashboard origin; inactive unless dashboard navigation is enabled. |
-| <code>NEXT_PUBLIC_DASHBOARD_ENABLED</code> | boolean | <code>false</code> | Marketing site only | Set to <code>true</code> only when the dashboard is ready for public navigation. |
+Authentication is off unless `AEGIS_KEYS_FILE` is configured. The supplied Compose stack is unauthenticated local development with loopback publishing; it does not mount a tenant keys file. Session Map state uses ephemeral Redis, while existing SQLite audit metadata persists separately. See the guides before changing exposure or connecting a real Upstream.
 
 ## Local development and scripts
 

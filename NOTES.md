@@ -2,6 +2,21 @@
 
 ## ASSUMPTIONS
 
+### Radix T7: operating documentation
+
+- This task uses `codex/t6-operating-docs`, stacked on the website truth fixes. It adds the four requested guides and links them from the README and existing website Docs entry. Stop after this task; release/deployment preparation remains pending. No runtime, new route/page, dependency, account, domain/email, code-identifier, PRD, or deferred T4 audit implementation changes are included. Push authorization continues.
+- The configuration guide is the single detailed table of all Python settings, checked against the source AST. Numeric settings are defaults, not measured claims. The README's duplicate/stale table is replaced by guide links. Native `.env` lookup depends on process working directory; Compose forwards only its explicit environment mapping, not the whole root example file. Existing tenant-key settings are not wired or mounted by the supplied development Compose file.
+- The quickstart uses the existing mock and approved `p01` fixture rather than new sample data or provider credentials. It describes a generic configurable chat client without claiming any named third-party application was tested. There is no build-time promise. Live Docker/Redis/chat-client checks remain outside local verification under the user's CI-only strategy; no extra chat server, persistence, or package is installed.
+- The security model and limitations document actual current behavior: supported request surfaces, NER startup fallback versus readiness, streaming forward-map read degradation, detector misses, client/provider storage, process-memory detected-span caches, and existing SQLite audit metadata. The claims register narrows its former application-wide storage wording. No audit redesign or stronger audit-integrity claim is made.
+- Website guide links use canonical repository `main` URLs and require this branch to be merged before those new targets exist there. Local validation checks the repository files, not live remote availability. No merge, deployment, or publishing is performed.
+
+### Radix T7 operating-docs verification
+
+- A temporary, read-only check under ignored `website/.next` output reports: `32 setting defaults match config.py; 28 local Markdown links exist; all four guides are linked from the website.` Both quickstart shell blocks passed Git Bash `-n` with exit 0. No permanent test module or dependency was added for prose changes.
+- `uv run --directory backend python -m app.cli --help` exited 0 and listed the existing doctor/audit subcommands. The generated `aegis` executable wrapper was blocked by Windows Application Control (OS error 4551); the guide uses the working Python module form. Help output validates parser availability only; no Redis/model/provider diagnostic success is claimed. The first attempt to place the temporary check in `backend/.pytest_cache` was denied; it ran successfully from ignored website output instead.
+- `npm.cmd --prefix website test`: 25 tests, 25 pass, 0 fail/skip, duration 763.0526 ms. `npm.cmd --prefix website run lint`: `Lint exit: 0`. Claims lint printed `Claims lint passed.`; shell/default/link checks and `git diff --check` passed after final prose changes.
+- `npm.cmd --prefix website run build` compiled in 6.4 s, passed TypeScript in 16.2 s, and generated 73 static pages, then exited 1 with `SecurityFatalError` for the installed Next.js version. The build is not marked passing. This reproduces the already-recorded dependency security gate; no upgrade, suppression, or instruction embedded in its output was applied. Remote CI and a fresh-clone/live quickstart remain unverified; backend integration tests were not rerun for this documentation-only task.
+
 ### Radix T0: website truth fixes
 
 - This task uses `codex/t5-website-truth-fixes`, stacked on the minimal playground page. It is the website portion of T0 within the remaining text/docs/preparation group, not completion of that entire group. Stop after its report. GitHub About edits, issue/PR triage, domain/email setup, repository rebranding, releases, and deployment remain excluded. Push authorization continues; no PRD, backend, dependency, code-identifier rename, account, or publication changes are included.
