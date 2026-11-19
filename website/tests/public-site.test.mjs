@@ -3,6 +3,48 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { GET } from "../app/.well-known/security.txt/route.ts";
 import { marketingPaths, sitePages } from "../lib/site-content.ts";
+import { applyTheme, readTheme, themeBootstrap, THEME_KEY } from "../lib/theme.ts";
+import { runInNewContext } from "node:vm";
+
+function themeRoot() {
+  let dark = false;
+  return { classList: { toggle(name, enabled) { assert.equal(name, "dark"); dark = enabled; }, contains() { return dark; } } };
+}
+
+test("theme defaults to light and accepts only an explicit saved dark preference", () => {
+  for (const value of [null, "", "light", "system", "unexpected"]) assert.equal(readTheme({ getItem: () => value }), "light");
+  assert.equal(readTheme({ getItem: () => "dark" }), "dark");
+  assert.equal(readTheme({ getItem() { throw Error("blocked"); } }), "light");
+});
+
+test("theme changes the page and persists a single preference without storing input", () => {
+  const root = themeRoot();
+  const stored = new Map();
+  const storage = { setItem: (key, value) => stored.set(key, value) };
+  applyTheme(root, storage, "dark");
+  assert.equal(root.classList.contains("dark"), true);
+  assert.deepEqual([...stored], [[THEME_KEY, "dark"]]);
+  applyTheme(root, storage, "light");
+  assert.equal(root.classList.contains("dark"), false);
+  assert.deepEqual([...stored], [[THEME_KEY, "light"]]);
+});
+
+test("theme still changes when preference storage is blocked", () => {
+  const root = themeRoot();
+  applyTheme(root, { setItem() { throw Error("blocked"); } }, "dark");
+  assert.equal(root.classList.contains("dark"), true);
+});
+
+test("pre-paint theme bootstrap restores dark and tolerates inaccessible storage", () => {
+  const document = { documentElement: themeRoot() };
+  runInNewContext(themeBootstrap, { document, localStorage: { getItem: () => "dark" } });
+  assert.equal(document.documentElement.classList.contains("dark"), true);
+  runInNewContext(themeBootstrap, { document, localStorage: { getItem: () => "invalid" } });
+  assert.equal(document.documentElement.classList.contains("dark"), false);
+  const blocked = { document };
+  Object.defineProperty(blocked, "localStorage", { get() { throw Error("blocked"); } });
+  assert.doesNotThrow(() => runInNewContext(themeBootstrap, blocked));
+});
 
 const removedPaths = [
   "product/compare", "product/cloud", "product/cloud/managed-nodes", "product/cloud/audit-exports",
