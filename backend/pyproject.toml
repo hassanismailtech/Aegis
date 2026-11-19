@@ -34,7 +34,7 @@ packages = ["app", "packs"]
 [dependency-groups]
 dev = [
     "pytest>=8.2",
-    "pytest-asyncio>=0.23",
+    "pytest-asyncio>=1.4.0",
     "asgi-lifespan>=2.1",
     "anthropic>=2.3.0",
 ]
