@@ -2,7 +2,7 @@
 
 > An inspectable data boundary for AI agents handling Nigerian identifiers.
 
-Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detected sensitive values with session-stable Placeholders before a request reaches an external Upstream, and its Reinjector restores known values only in the response returned to the caller. Wire Tap and telemetry make the post-scrub boundary reviewable. Aegis reduces leakage exposure; it does not guarantee perfect detection or make a transfer lawful.
+Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detected sensitive values with session-stable Placeholders before a request reaches an external Upstream, and its Reinjector restores known values only in the response returned to the caller. Wire Tap and telemetry make the post-scrub boundary reviewable. Aegis reduces leakage exposure; detection has limits, and Aegis does not make a transfer lawful.
 
 ## Visit the public website
 
@@ -161,7 +161,7 @@ All Proxy settings are read by <code>backend/app/config.py</code> from the repos
 | Start services | <code>docker compose up --build</code> | Ephemeral Redis plus local mock Upstream. |
 | Proxy tests | <code>uv run --directory backend pytest -q</code> | Includes unit, integration, and leak tests. |
 | Held-out evaluation | <code>uv run --directory backend python scripts/eval_heldout.py --floor 0.85</code> | Synthetic project-authored set. |
-| Scrubber benchmark | <code>uv run --directory backend python scripts/bench_scrub.py</code> | Measured p50/p95, not a guarantee. |
+| Scrubber benchmark | <code>uv run --directory backend python scripts/bench_scrub.py</code> | Measured p50/p95; no fixed latency promise. |
 | OpenAI SDK smoke test | <code>uv run --directory backend python scripts/sdk_smoke.py</code> | Requires the local stack. |
 | Dashboard development | <code>npm --prefix frontend run dev</code> | Operational dashboard. |
 | Dashboard lint and build | <code>npm --prefix frontend run lint</code>, <code>npm --prefix frontend run build</code> | Quality gates. |

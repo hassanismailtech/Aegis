@@ -2,6 +2,21 @@
 
 ## ASSUMPTIONS
 
+### Radix T8: claims lint
+
+- This is the third implementation phase, on `codex/t3-claims-lint`, stacked on the playground backend. It adds only the scanner, tests, a CI job, and the minimum public-wording changes needed for a clean scan. Stop after this phase; the minimal playground page remains next. No runtime API, account, deployment, dependency, or PRD change is included.
+- The scanner checks the root README, Markdown under `docs/` except the root claims register, and plain-text website sources/assets. It prunes dependencies, framework caches, generated root output directories, and lockfiles. A source page inside `website/app/build/` is still scanned.
+- Fixed, case-insensitive rules implement the sprint's banned phrases. Diagnostics contain only relative source paths, line numbers, rule ids, and counts, never source-line contents. Read failures return a nonzero status. The guard is lexical; approved-claim and metric review remains necessary.
+- `claims-lint: allow` applies only to its own source line and requires review. Three marked lines contain instructional examples of prohibited wording. The unchanged archived PRD has one separate, exact-text, file-scoped exemption for its existing negated quotation; changed or additional claims in that file are still checked.
+- Existing limitations were rephrased without adding stronger claims or changing metrics. The CI job invokes the scanner with standalone Python through the existing uv action and does not install the backend dependency stack. No new Python/npm dependencies are added.
+
+### Radix T8 verification
+
+- `uv run --directory backend pytest -q tests/test_claims_lint.py`: `49 passed in 1.95s` in the existing offline environment. `uv run --no-project --python 3.12 python backend/scripts/claims_lint.py`: `Claims lint passed.` The baseline scan caught nine violations before the narrow wording/quotation corrections.
+- Python syntax, workflow YAML, all 17 Bash run blocks, and `git diff --check` passed. `npm.cmd --prefix website run lint` exited 0.
+- `npm.cmd --prefix website run build` compiled, passed TypeScript, and generated static pages, then exited 1 with `SecurityFatalError` for the installed Next.js version. Read-only `npm audit --omit=dev --json` also exited 1. Dependency remediation is a separate task; no upgrade command or security suppression was applied.
+- Prior backend commit `9202ace` now has actual CI evidence: run `44486572052` passed the backend, containers, and secret checks. Its backend log reports `241 passed, 5 warnings in 31.26s` and `leaks: 0 / 35 planted entities`. Its website/frontend jobs passed lint/build and failed dependency audits; the separate evaluation run passed. These results supersede earlier statements that those integration/container checks had not run, but do not establish a green overall CI result.
+
 ### Radix T2: playground backend
 
 - The user renewed push authorization and authorized the next phase. `codex/t1-startup-guard` was pushed at `2ce98fa`; this phase uses the separate stacked branch `codex/t2-playground-api`. No merge, account change, release, or deployment is authorized. Stop after this phase; claims lint and UI work remain pending.

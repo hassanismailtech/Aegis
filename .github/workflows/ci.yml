@@ -9,6 +9,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Check public claims
+        run: uv run --no-project --python 3.12 python backend/scripts/claims_lint.py
   backend:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

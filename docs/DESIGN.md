@@ -53,4 +53,4 @@ Hero (headline, `docker compose up` with copy button, diff visual), Problem (3 f
 150 ms ease-in-out on hover and feed insertion; no looping animation on data. One abstract topographic or particle graphic at most. No stock photos, no stolen screenshots, no logos you do not have permission to show.
 
 ## 9. Voice
-Plain, specific, measured. "Reduces", "keeps out", "evidence", "as measured on". Never "guarantee", "military-grade", "zero-knowledge", "100%".
+Plain, specific, measured. "Reduces", "keeps out", "evidence", "as measured on". Never "guarantee", "military-grade", "zero-knowledge", "100%". <!-- claims-lint: allow: prohibited-phrase examples -->
