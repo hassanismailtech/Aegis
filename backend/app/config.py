@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     aegis_keys_file: str = ""
     aegis_ticket_secret: str = ""
     aegis_insecure_dev: bool = False
-    bind_host: str = "0.0.0.0"
+    bind_host: str = "127.0.0.1"
+    playground_enabled: bool = False
+    playground_max_chars: int = Field(default=2000, ge=1)
+    playground_rate_per_minute: int = Field(default=20, ge=1)
+    playground_trust_proxy: bool = False
     max_body_bytes: int = Field(default=1_048_576, ge=1)
     max_messages: int = Field(default=200, ge=1)
     rate_limit_capacity: int = Field(default=60, ge=1)

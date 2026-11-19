@@ -1,76 +1,125 @@
-"""Tests for startup guard and ticket secret enforcement."""
+"""Startup behavior, including a mandatory real-Redis readiness check."""
 
+import hashlib
+import json
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import httpx
 import pytest
-from unittest.mock import patch
+from asgi_lifespan import LifespanManager
 
+from app import main
 from app.config import Settings
 
 
-def _settings(**overrides):
-    """Build a Settings instance with specified overrides."""
-    defaults = {
-        "redis_url": "redis://localhost:6379/0",
+@pytest.fixture(autouse=True)
+def local_settings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for name, value in {
+        "bind_host": "127.0.0.1",
+        "aegis_keys_file": "",
+        "aegis_ticket_secret": "",
+        "aegis_demo_token": "",
+        "aegis_insecure_dev": False,
         "ner_enabled": False,
-    }
-    defaults.update(overrides)
-    return Settings(**defaults)
+        "audit_db_path": str(tmp_path / "audit.db"),
+    }.items():
+        monkeypatch.setattr(main.settings, name, value)
 
 
-class TestStartupGuard:
-    """Non-loopback bind without keys must be refused unless AEGIS_INSECURE_DEV."""
-
-    def test_loopback_no_keys_ok(self):
-        """127.0.0.1 with no keys file is fine (local dev)."""
-        s = _settings(bind_host="127.0.0.1", aegis_keys_file="")
-        from app.main import _is_loopback
-        assert _is_loopback(s.bind_host)
-
-    def test_default_bind_no_keys_ok(self):
-        """0.0.0.0 default with no keys file is treated as loopback."""
-        s = _settings(bind_host="0.0.0.0", aegis_keys_file="")
-        from app.main import _is_loopback
-        assert _is_loopback(s.bind_host)
-
-    def test_nonloopback_no_keys_no_flag_refuses(self):
-        """A public bind without keys and without AEGIS_INSECURE_DEV must raise."""
-        from app.main import _is_loopback
-        assert not _is_loopback("10.0.0.5")
-
-    def test_nonloopback_no_keys_with_flag_allowed(self):
-        """AEGIS_INSECURE_DEV=1 suppresses the guard."""
-        s = _settings(bind_host="10.0.0.5", aegis_keys_file="", aegis_insecure_dev=True)
-        from app.main import _is_loopback
-        assert not _is_loopback(s.bind_host)
-        assert s.aegis_insecure_dev
-
-    def test_nonloopback_with_keys_ok(self):
-        """A public bind with AEGIS_KEYS_FILE set is fine."""
-        s = _settings(bind_host="10.0.0.5", aegis_keys_file="/path/to/keys.json")
-        from app.main import _is_loopback
-        assert not _is_loopback(s.bind_host)
-        assert s.aegis_keys_file
+@pytest.fixture
+def keys_file(tmp_path: Path) -> str:
+    path = tmp_path / "keys.json"
+    path.write_text(json.dumps([{
+        "tenant_id": "startup-test",
+        "key_sha256": hashlib.sha256(b"startup-test-key").hexdigest(),
+    }]), encoding="utf-8")
+    return str(path)
 
 
-class TestTicketSecretEnforcement:
-    """AEGIS_TICKET_SECRET must be set when auth is enabled."""
+@asynccontextmanager
+async def started_client() -> AsyncIterator[httpx.AsyncClient]:
+    async with LifespanManager(main.app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=main.app),
+            base_url="http://aegis.test", trust_env=False,
+        ) as client:
+            yield client
 
-    def test_no_keys_no_ticket_secret_ok(self):
-        """Local dev without keys: ticket secret falls back to demo token (allowed)."""
-        s = _settings(aegis_keys_file="", aegis_ticket_secret="", aegis_demo_token="demo")
-        ticket_secret = s.aegis_ticket_secret or s.aegis_demo_token
-        assert ticket_secret == "demo"
 
-    def test_keys_with_ticket_secret_ok(self):
-        """Auth enabled with a dedicated ticket secret is fine."""
-        s = _settings(
-            aegis_keys_file="/path/to/keys.json",
-            aegis_ticket_secret="my-dedicated-secret",
-        )
-        assert s.aegis_ticket_secret == "my-dedicated-secret"
+@pytest.mark.parametrize(("host", "expected"), [
+    ("127.0.0.1", True), ("127.5.5.5", True), ("::1", True),
+    ("localhost", True), (" LOCALHOST ", True), ("[::1]", True),
+    ("0.0.0.0", False), ("::", False), ("192.168.1.5", False),
+    ("example.com", False), ("", False), ("999.0.0.1", False),
+])
+def test_loopback_addresses(host: str, expected: bool) -> None:
+    assert main._is_loopback(host) is expected
 
-    def test_keys_without_ticket_secret_must_fail(self):
-        """Auth enabled without AEGIS_TICKET_SECRET must be caught at startup."""
-        s = _settings(aegis_keys_file="/path/to/keys.json", aegis_ticket_secret="")
-        # The lifespan enforces this, here we verify the condition
-        auth_enabled = bool(s.aegis_keys_file)
-        assert auth_enabled and not s.aegis_ticket_secret
+
+def test_default_bind_is_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("BIND_HOST", raising=False)
+    assert Settings(_env_file=None).bind_host == "127.0.0.1"
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::", "192.168.1.5"])
+async def test_public_bind_without_keys_refuses(
+    monkeypatch: pytest.MonkeyPatch, host: str,
+) -> None:
+    monkeypatch.setattr(main.settings, "bind_host", host)
+    with pytest.raises(RuntimeError, match="Refusing to start"):
+        async with LifespanManager(main.app):
+            pytest.fail("Unauthenticated public startup must be refused")
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "::1", "localhost"])
+async def test_loopback_startup(monkeypatch: pytest.MonkeyPatch, host: str) -> None:
+    monkeypatch.setattr(main.settings, "bind_host", host)
+    async with started_client() as client:
+        assert (await client.get("/healthz")).status_code == 200
+
+
+async def test_insecure_public_startup_warns(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(main.settings, "bind_host", "0.0.0.0")
+    monkeypatch.setattr(main.settings, "aegis_insecure_dev", True)
+    with caplog.at_level(logging.WARNING, logger="aegis.startup"):
+        async with started_client() as client:
+            assert (await client.get("/healthz")).status_code == 200
+    assert [r.getMessage() for r in caplog.records if r.name == "aegis.startup"] == [
+        "AEGIS_INSECURE_DEV=1: running without authentication on a "
+        "non-loopback bind. Do not use this in production."
+    ]
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "0.0.0.0"])
+async def test_keys_require_ticket_secret(
+    monkeypatch: pytest.MonkeyPatch, keys_file: str, host: str,
+) -> None:
+    monkeypatch.setattr(main.settings, "bind_host", host)
+    monkeypatch.setattr(main.settings, "aegis_keys_file", keys_file)
+    monkeypatch.setattr(main.settings, "aegis_insecure_dev", True)
+    with pytest.raises(RuntimeError, match="AEGIS_TICKET_SECRET must be set"):
+        async with LifespanManager(main.app):
+            pytest.fail("Authentication must require a dedicated ticket secret")
+
+
+async def test_authenticated_public_startup(
+    monkeypatch: pytest.MonkeyPatch, keys_file: str,
+) -> None:
+    monkeypatch.setattr(main.settings, "bind_host", "0.0.0.0")
+    monkeypatch.setattr(main.settings, "aegis_keys_file", keys_file)
+    monkeypatch.setattr(main.settings, "aegis_ticket_secret", "startup-test-secret")
+    async with started_client() as client:
+        assert (await client.get("/healthz")).status_code == 200
+        assert main.app.state.tenants is not None
+
+
+async def test_loopback_startup_with_real_redis() -> None:
+    async with started_client() as client:
+        response = await client.get("/readyz")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ready", "redis": "ok", "ner": "disabled"}

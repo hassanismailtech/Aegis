@@ -11,6 +11,7 @@ Public text may only use rows marked **OK**, with the stated qualifier. Numbers 
 | Wire Tap shows exactly what Upstream received | OK | Wire Tap endpoint, `test_no_leak.py` |
 | Leak test: 0 planted entities reached Upstream | OK | `leaks: 0 / 35` on the project's own prompts; not an adversarial audit |
 | Per-tenant API keys, size limits, rate limits, signed dashboard tickets | OK | Authentication is **off unless `AEGIS_KEYS_FILE` is set**. Say so wherever auth is mentioned |
+| Startup refuses configured non-loopback binds without tenant keys | OK | `AEGIS_INSECURE_DEV=1` explicitly bypasses this check. Keys require `AEGIS_TICKET_SECRET`. The guard checks `BIND_HOST`, not independently supplied Uvicorn arguments; `test_startup_guard.py` |
 | Rule layer overhead | OK, as measured | p50 about 0.15 to 0.22 ms on 60 words (dev laptop, `bench_scrub.py`) |
 | Model layer overhead | OK, as measured | Cold p50 about 350 to 440 ms (60 words) and about 3.2 to 4.3 s (500 words); long text exceeds the 2 s default timeout and is blocked (503) |
 | Cached or skipped model calls are fast | OK | about 0.4 ms p50 / under 2 ms p95 on cache hit or skip |

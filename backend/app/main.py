@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import hmac
+import ipaddress
 import json
 import logging as _logging
 import time
@@ -26,6 +27,7 @@ from app.config import settings
 from app.errors import ScrubError, aegis_error, anthropic_error
 from app.limits import BodySizeLimitMiddleware, consume_rate_limit
 from app.logs import log_request, log_telemetry
+from app.playground import PLAYGROUND_PATH, router as playground_router
 from app.schemas import ChatRequest, MessagesRequest
 from app.session_map import SessionMap
 from app.scrubber import scrub_messages
@@ -56,8 +58,13 @@ _startup_logger = _logging.getLogger("aegis.startup")
 
 
 def _is_loopback(host: str) -> bool:
-    """True for 127.x.x.x, ::1, localhost, and the 0.0.0.0 default (listens locally too)."""
-    return host in ("127.0.0.1", "::1", "localhost", "0.0.0.0")
+    host = host.strip().strip("[]").lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def build_upstream() -> Upstream:
@@ -109,11 +116,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(playground_router)
 
 
 @app.exception_handler(RequestValidationError)
 async def openai_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-    message = f"Invalid request body: {exc}"
+    message = "Invalid request body."
+    if request.url.path == PLAYGROUND_PATH:
+        enabled = settings.playground_enabled
+        return JSONResponse(
+            status_code=422 if enabled else 404,
+            content=aegis_error(
+                message if enabled else "Not found.",
+                "aegis_invalid_request" if enabled else "aegis_not_found",
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
     if request.url.path == "/v1/messages":
         return JSONResponse(status_code=400, content=anthropic_error(message))
     return JSONResponse(

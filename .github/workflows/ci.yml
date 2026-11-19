@@ -10,16 +10,25 @@ concurrency:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
-    services:
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 20
+    defaults:
+      run: { shell: bash }
     steps:
       - uses: actions/checkout@v4
+      - name: Start native Redis without persistence
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-server
+          sudo systemctl stop redis-server
+          redis-server --bind 127.0.0.1 --port 6379 --save "" --appendonly no \
+            --daemonize yes --pidfile "$RUNNER_TEMP/aegis-redis.pid" \
+            --logfile "$RUNNER_TEMP/aegis-redis.log"
+          for attempt in {1..20}; do
+            if redis-cli ping | grep -qx PONG; then exit 0; fi
+            sleep 1
+          done
+          exit 1
       - uses: astral-sh/setup-uv@v5
         with: { enable-cache: true }
       - uses: actions/cache@v4
@@ -42,6 +51,47 @@ jobs:
       - name: Dependency audit
         run: uvx pip-audit
         working-directory: backend
+      - name: Stop native Redis
+        if: always()
+        run: redis-cli shutdown nosave
+  containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions: { contents: read }
+    defaults:
+      run: { shell: bash }
+    env:
+      SECLUME_IMAGE: aegis:ci-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose and build images
+        run: |
+          docker compose config --quiet
+          docker compose build aegis mock-upstream
+          docker image inspect "$SECLUME_IMAGE" > /dev/null
+      - name: Refuse unauthenticated wildcard binding
+        run: |
+          docker create --name startup-guard \
+            -e BIND_HOST=0.0.0.0 -e AEGIS_KEYS_FILE= \
+            -e AEGIS_INSECURE_DEV=false -e NER_ENABLED=false "$SECLUME_IMAGE"
+          docker start startup-guard
+          exit_code=$(timeout 30s docker wait startup-guard)
+          test "$exit_code" -gt 0
+          docker logs startup-guard 2>&1 | grep -Fq 'Refusing to start: BIND_HOST is not loopback'
+      - name: Check Compose health
+        run: |
+          docker compose up --detach --no-build --wait --wait-timeout 180
+          docker compose exec -T redis redis-cli ping | grep -qx PONG
+          docker compose exec -T aegis python -c \
+            "import json, urllib.request; r = json.load(urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=5)); assert r['status'] == 'ready' and r['redis'] == 'ok'"
+          docker compose ps
+      - name: Remove test containers
+        if: always()
+        run: |
+          if docker container inspect startup-guard > /dev/null 2>&1; then
+            docker rm --force startup-guard
+          fi
+          docker compose down --remove-orphans
   frontend:
     runs-on: ubuntu-latest
     steps:

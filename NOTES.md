@@ -2,6 +2,40 @@
 
 ## ASSUMPTIONS
 
+### Radix T2: playground backend
+
+- The user renewed push authorization and authorized the next phase. `codex/t1-startup-guard` was pushed at `2ce98fa`; this phase uses the separate stacked branch `codex/t2-playground-api`. No merge, account change, release, or deployment is authorized. Stop after this phase; claims lint and UI work remain pending.
+- The playground is disabled by default. Validated requests are limited per client in fixed UTC minutes (default 20), with the configured character limit (default 2000). It calls the existing Scrubber and returns scrubbed text, detected type/Placeholder pairs, counts, a simulated reply, measured scrub time, and actual model availability. It never returns restored values or Session Map values and never calls Upstream.
+- Playground requests emit no Telemetry Events, change no telemetry aggregates, append no audit records, and add no application log lines. Validation errors use static messages; existing Proxy/Anthropic validation keeps HTTP 400 and its error shape, while playground validation uses HTTP 422. Playground JSON responses use `Cache-Control: no-store`.
+- Rate counters use atomic Redis Lua `INCR`/`EXPIRE` with a 70-second TTL. Client keys contain HMAC-SHA256 digests, never raw IPs. A random daily secret is shared via Redis `SET NX EX`, expiring shortly after the UTC day ends. Redis errors or missing salt state produce a static 503.
+- Every request owns a new `pg-` UUID Session with a 60-second TTL. Cleanup deletes only its three exact Session Map keys and is shielded during cancellation with a two-second deadline; Redis failure falls back to the TTL and returns a static 503 when a response is still possible.
+- Proxy-header trust defaults off. Enabling it is supported only behind isolated ingress that overwrites `X-Forwarded-For`; the first forwarded address is used only if valid, otherwise the socket peer is used. Compose disables Uvicorn's own rewriting with `FORWARDED_ALLOW_IPS=""` and explicitly forwards playground, NER, and CORS settings. The public ingress/Caddy configuration belongs to a later phase.
+- No new Python/npm dependencies, persistent stores, frontend files, or PRD edits are introduced. Local controller/privacy tests isolate Redis; six mandatory integration cases use real Redis for scrubbing, concurrency, minute/day rollover, and partial-session cleanup. Together with the existing startup readiness case, all seven real-Redis cases remain mandatory in CI and are explicitly deselected locally under the user's CI-only strategy.
+- CI runs only for pull requests or `main`. Draft PR creation was attempted but the GitHub connector returned `403 Resource not accessible by integration`; the available browser is signed out. Branch pushes do not establish that the mandatory backend/container checks passed.
+
+### Radix T2 local verification
+
+- `uv run --directory backend pytest -q tests/test_playground.py tests/test_startup_guard.py -k "not real_redis"`: `56 passed, 7 deselected in 7.89s`, using the existing offline environment and ignored local uv cache. The deselected integration cases are not skipped or weakened in CI.
+- Existing Python tooling parsed all changed Python modules and Compose YAML, and statically verified playground/NER/CORS wiring, disabled Uvicorn proxy rewriting, `SECLUME_IMAGE`, and host-loopback publishing. `git diff --check` passed.
+- Real Redis/Lua concurrency and rollover, the complete backend suite, image builds, Compose health, and the live curl example remain unverified. No CI, real-Redis, or live-service success is claimed from local mocked-controller tests.
+
+### Radix T1: startup guard
+
+- This phase changes only the startup guard, its launch configuration, tests, CI, and matching documentation. The PRD is unchanged. Work stays on `codex/t1-startup-guard` with local commits and no pushes, publishing, account changes, or code-identifier renaming. Later phases require explicit authorization.
+- `BIND_HOST` defaults to `127.0.0.1`. The Docker entrypoint uses that same setting; callers invoking Uvicorn directly must keep `--host` aligned. The entrypoint is LF-terminated and its copied image file is normalized defensively for Windows checkouts.
+- Compose uses `${SECLUME_IMAGE:-aegis:local}` and explicitly enables unauthenticated wildcard binding inside the container. Its development boundary depends on host-loopback publishing and a trusted host; it is not a public reverse-proxy deployment.
+- Backend CI uses native Redis on Ubuntu 24.04 instead of Docker, with snapshots and AOF disabled. This is the existing Redis test-service dependency, not a new Python/npm dependency; Redis 7.0 uses BSD-3-Clause (https://raw.githubusercontent.com/redis/redis/7.0/COPYING). Every CI test runs, including the real-lifespan Redis readiness test.
+- Local Redis integration and container verification are CI-only by user choice. Local focused checks exclude only `real_redis`; the integration test itself has no skip or fake Redis. CI execution remains unverified until separately authorized; nothing is pushed or dispatched in this phase.
+- Local uv checks use the existing environment offline, without synchronization, and an ignored `backend/.pytest_cache/uv` cache because the default cache is inaccessible in the sandbox.
+- Subsequent tasks remain ordered: playground backend, claims lint, minimal playground page, then remaining text/docs/deployment preparation. Playground requests emit no Telemetry Events and return no restored values; rate limiting must be atomic with concurrency/rollover tests. Deployment uses `SECLUME_IMAGE` and a configured Caddy hostname. T4 is deferred.
+
+### Radix T1 local verification
+
+- `uv run --directory backend pytest -q tests/test_startup_guard.py -k "not real_redis"`: `23 passed, 1 deselected in 3.91s` using the offline/cache settings above. The deselected test remains mandatory in CI.
+- Existing Python/PyYAML and Git Bash parsed workflow/Compose YAML and all 16 Bash run blocks, checked entrypoint LF/syntax, and verified image selection and loopback publishing.
+- The extracted CI refusal script passed 7 stubbed control-flow cases: actual refusal succeeds; zero exit, timeout, create failure, wait failure, wrong message, and log failure are rejected. The entrypoint forwarded default/custom host and port arguments in 3 stubbed cases. These checks do not build or run containers.
+- Real Redis readiness, the complete backend suite, image building, and Compose health have not run locally or on CI in this phase. No CI result is claimed.
+
 - The planted Nigerian identifier regression set uses synthetic BVN and NIN-shaped values only. Their CI floors are independently configurable and default to 100% because these formats are deterministic pattern detections, not model-derived measurements.
 
 - Source code is Apache-2.0. CC BY 4.0 applies only to original prose and diagrams under `docs/`; code, configuration, and code blocks remain Apache-2.0.

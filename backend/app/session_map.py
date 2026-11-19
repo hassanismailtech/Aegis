@@ -40,6 +40,10 @@ class SessionMap:
         self.rev_key = f"{base}:rev"
         self.ctr_key = f"{base}:ctr"
 
+    async def destroy(self) -> None:
+        """Delete only this Session's three keys; do not scan other Sessions."""
+        await self.redis.delete(self.fwd_key, self.rev_key, self.ctr_key)
+
     async def get_or_create_placeholder(self, entity_type: EntityType, original: str) -> str:
         """Stable numbering via fwd/rev/ctr (PRD 7.2); sliding TTL refreshed."""
         ph = await self.redis.eval(
