@@ -5,6 +5,7 @@ Public text may only use rows marked **OK**, with the stated qualifier. Numbers 
 | Claim | Status | Qualifier / evidence |
 |---|---|---|
 | Public project name is Seclume, formerly Aegis | OK | Maintainer renamed the repository to `hassanismailtech/seclume`; public-text migration is in progress. Existing AEGIS settings, X-Aegis headers, package/CLI and Redis prefixes remain compatible. |
+| Marketing site defaults to light and can remember an explicit dark theme | OK | `website/lib/theme.ts`, `ThemeToggle.tsx`, website tests: only the colour preference is written by the theme control. Blocked storage still permits a page-local change. No analytics or playground-input persistence is added. |
 | Repository protections must be verified separately from workflow configuration | OK | CI/evaluation/publish YAML defines jobs and triggers, not active GitHub rulesets or administrator-resistant source history. No blanket claim that direct pushes or history rewrites are impossible. |
 | Works with the official OpenAI SDK by changing `base_url`, incl. streaming and tool calls | OK | `scripts/sdk_smoke.py`, `test_roundtrip.py`, `test_streaming.py` |
 | Works with the official Anthropic SDK (`/v1/messages`), incl. streaming | OK | `test_anthropic.py`, `test_streaming.py` |
