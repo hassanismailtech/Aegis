@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Check public claims
         run: uv run --no-project --python 3.12 python backend/scripts/claims_lint.py
   backend:
@@ -50,7 +50,7 @@ jobs:
           (cd "$RUNNER_TEMP" && sha512sum --check caddy.sha512)
           tar -xzf "$RUNNER_TEMP/caddy.tar.gz" -C "$RUNNER_TEMP" caddy
           echo "CADDY_BIN=$RUNNER_TEMP/caddy" >> "$GITHUB_ENV"
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with: { enable-cache: true }
       - uses: actions/cache@v4
         with:
