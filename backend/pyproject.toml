@@ -33,7 +33,7 @@ packages = ["app", "packs"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.2",
+    "pytest>=9.2.0",
     "pytest-asyncio>=0.23",
     "asgi-lifespan>=2.1",
     "anthropic>=2.3.0",
