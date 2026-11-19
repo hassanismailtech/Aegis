@@ -156,7 +156,7 @@ $env:SECLUME_IMAGE = "aegis:local"
 docker build --target runtime --tag $env:SECLUME_IMAGE backend
 ~~~
 
-The planned release is still [Unreleased](CHANGELOG.md#unreleased). These commands build a local image; a published release image is not assumed. See the [release checklist](docs/release-checklist.md) before tagging, merging to the publishing branch, or publishing.
+The planned release is still [Unreleased](CHANGELOG.md#unreleased). These commands build a local image; a published release image is not assumed. See the [release checklist](docs/release-checklist.md) before tagging, merging to the publishing branch, or publishing. A separate [synthetic playground deployment profile](docs/deployment.md) is prepared for review; it has not been launched.
 
 The Proxy refuses startup when <code>BIND_HOST</code> is non-loopback and tenant-key authentication is disabled, unless <code>AEGIS_INSECURE_DEV=1</code> is explicitly set. Wildcard addresses <code>0.0.0.0</code> and <code>::</code> are not loopback. When tenant keys are configured, a dedicated <code>AEGIS_TICKET_SECRET</code> is required even with the development override. Direct Uvicorn commands must use the same <code>--host</code> as <code>BIND_HOST</code>; the guard checks configuration, not Uvicorn's independently supplied arguments.
 
