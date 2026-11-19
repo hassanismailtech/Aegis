@@ -120,6 +120,8 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: website/package-lock.json }
       - run: npm ci
         working-directory: website
+      - run: npm test
+        working-directory: website
       - run: npm run lint && npm run build
         working-directory: website
       - run: npm audit --omit=dev --audit-level=moderate
