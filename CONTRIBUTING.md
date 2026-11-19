@@ -1,6 +1,6 @@
-# Contributing to Aegis
+# Contributing to Seclume
 
-Thanks for helping. Aegis handles sensitive data paths, so we are strict about tests and claims.
+Thanks for helping. Seclume handles sensitive data paths, so we are strict about tests and claims.
 
 ## Ground rules
 - **Never put real personal data** in issues, PRs, tests, fixtures or screenshots. Synthetic only.
@@ -11,6 +11,9 @@ Thanks for helping. Aegis handles sensitive data paths, so we are strict about t
 - AI-assisted contributions are welcome. You are responsible for the result: review every line, run the tests.
 
 ## Dev setup
+
+The complete backend suite requires real Redis and a checksum-verified Caddy executable supplied through `CADDY_BIN`. See [the local quickstart](docs/quickstart.md) for prerequisites; CI runs native Redis on Ubuntu. Missing integration prerequisites are failures, not optional skips.
+
 ```bash
 docker compose up -d redis mock-upstream
 cd backend && uv sync && uv run pytest -q
@@ -28,9 +31,9 @@ Tests added and passing; no new logging of bodies or secrets; claims policy resp
 
 ## Pull Request Process
 
-Direct pushes to main are blocked. All changes must be submitted via Pull Request. Automated status checks (pytest, pattern benchmarks, and leak tests) must pass before merging.
+Submit changes through Pull Requests and verify passing automated checks before merging. Repository administrators must configure and verify the intended GitHub rules; source files alone do not prove that direct pushes are blocked.
 
-Use a short-lived branch named `feat/<area>-<summary>`, `fix/<area>-<summary>`, `docs/<summary>`, or `chore/<summary>`. Open the PR against `main`, use Conventional Commits, sign commits with the DCO, and request review from the code owners. Required checks are the `ci` backend, frontend, website, and secrets jobs, plus the `eval` held-out recall job. Do not merge by overriding a failed or skipped required check.
+Use a short-lived branch named `feat/<area>-<summary>`, `fix/<area>-<summary>`, `docs/<summary>`, or `chore/<summary>`. Open the PR against `main`, use Conventional Commits, sign commits with the DCO, and request review from the code owners. Review the `ci` backend, containers, frontend, website, secrets and claims jobs, plus `eval`. Configure the intended required checks in GitHub settings and do not override a failed or skipped required check. A main merge can trigger the separate image-publishing workflow.
 
 ## Conduct and security
 See `CODE_OF_CONDUCT.md`. Report vulnerabilities privately per `SECURITY.md`.
