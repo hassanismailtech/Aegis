@@ -34,8 +34,30 @@ test("navigation, footer, landing, and related links resolve to retained pages o
   for (const href of links.filter(href => href.startsWith("/"))) {
     assert.ok(valid.has(new URL(href, "https://example.test").pathname), `unresolved link ${href}`);
   }
-  const partnerLink = sitePages["company/design-partners"].related.find(link => link.href.startsWith("https://github.com/"));
-  assert.equal(new URL(partnerLink.href).pathname, "/hassanismailtech/Aegis/issues/new");
+});
+
+test("design-partner interest opens the confirmed mailbox with a subject", () => {
+  const links = sitePages["company/design-partners"].related;
+  assert.equal(links.length, 1);
+  const target = new URL(links[0].href);
+  assert.equal(target.protocol, "mailto:");
+  assert.equal(target.pathname, "hello@seclume.tech");
+  assert.equal(target.searchParams.get("subject"), "Design partner");
+});
+
+test("contact and disclosure pages expose the confirmed channels", () => {
+  const contacts = sitePages["company/contact"].related.map(link => link.href);
+  assert.ok(contacts.includes("mailto:hello@seclume.tech"));
+  assert.ok(contacts.includes("mailto:privacy@seclume.tech"));
+  const security = sitePages["trust/security"].related.map(link => link.href);
+  assert.ok(security.includes("mailto:security@seclume.tech"));
+  assert.ok(security.includes("https://github.com/hassanismailtech/seclume/security/advisories/new"));
+});
+
+test("publishing the privacy contact retains the policy review qualification", () => {
+  const privacy = sitePages["legal/privacy"];
+  assert.equal(privacy.status, "Publication review");
+  assert.ok(privacy.related.some(link => link.href === "mailto:privacy@seclume.tech"));
 });
 
 function siteOrigin(t, value) {
@@ -54,7 +76,10 @@ test("security contact has a single expiry, private report link, and HTTPS canon
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Content-Type"), "text/plain; charset=utf-8");
   const body = await response.text();
-  assert.match(body, /^Contact: https:\/\/github.com\/hassanismailtech\/Aegis\/security\/advisories\/new$/m);
+  assert.match(body, /^Contact: mailto:security@seclume\.tech$/m);
+  assert.match(body, /^Contact: https:\/\/github.com\/hassanismailtech\/seclume\/security\/advisories\/new$/m);
+  assert.equal(body.match(/^Contact: /gm).length, 2);
+  assert.match(body, /^Policy: https:\/\/github.com\/hassanismailtech\/seclume\/security\/policy$/m);
   assert.equal(body.match(/^Expires: /gm).length, 1);
   assert.match(body, /^Expires: 2027-11-18T00:00:00.000Z$/m);
   assert.match(body, /^Canonical: https:\/\/example.test\/\.well-known\/security.txt$/m);

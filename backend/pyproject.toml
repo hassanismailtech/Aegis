@@ -21,6 +21,10 @@ dependencies = [
     "onnxruntime>=1.20",
 ]
 
+[project.urls]
+Repository = "https://github.com/hassanismailtech/seclume"
+Issues = "https://github.com/hassanismailtech/seclume/issues"
+
 [project.scripts]
 aegis = "app.cli:main"
 

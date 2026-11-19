@@ -2,6 +2,21 @@
 
 ## ASSUMPTIONS
 
+### Repository rename and public contacts
+
+- This task uses `codex/t10-repository-contacts`, stacked on the verified security branch `codex/t9-web-security-fix` (66d1a5a). The requested small PR targets that branch so its diff contains only this task. The shared origin already points to `https://github.com/hassanismailtech/seclume.git`; the GitHub connector independently confirms the public repository name and clone URL. Separate clones were not inspected.
+- Replace maintained owner/repository URLs, badges and changelog link destinations, and correct the fresh-clone directory command to `cd seclume`. Preserve historical changelog entries and the PRD. `git ls-remote --tags origin` exited 0 with no advertised tags; corrected historical release/compare URLs are not evidence those releases exist. The first sandboxed tag query could not connect; the authorized network retry succeeded.
+- Add repository metadata to the existing npm packages (including their subdirectories) and Python project URLs. Package names, dependency requirements, lockfiles, AEGIS environment names, X-Aegis headers, CLI and Redis prefixes are unchanged. No new library or module is added. Context7 is unavailable; installed Next.js linking/Route Handler documentation was read before editing the existing pages/route.
+- Publish only the three mailboxes explicitly confirmed working by the user: security@seclume.tech, hello@seclume.tech and privacy@seclume.tech. Keep GitHub private security advisories alongside security email. Design-partner interest uses a mailto link with the subject Design partner, retaining the synthetic-only guidance. The general contact page now has usable channels; the privacy policy retains Publication review because controller/vendor/retention details are unresolved. No email is sent, contact form added, response commitment introduced or mailbox delivery independently tested.
+- This phase does not change Vercel connections, deploy, publish images or change package visibility/account settings. Those external checks/actions and the queued brand/design work remain separate phases under the stop/report contract. Use the user's verified GitHub no-reply address with command-scoped Git overrides for local commits and the authorized task-branch push; do not change account privacy settings.
+
+### Repository/contact verification
+
+- `npm.cmd --prefix website test`: 28 tests, 28 passed, 0 failed; the existing Node module-type warning remains. Both `npm.cmd --prefix website run lint` and `npm.cmd --prefix frontend run lint` exited 0. Website build: `Compiled successfully in 12.6s`, TypeScript passed, 73/73 static pages, exit 0. Frontend build: `Compiled successfully in 21.2s`, TypeScript passed, 3/3 static pages, exit 0. NEXT_TELEMETRY_DISABLED=1 was set only for build/start commands.
+- `uv lock --project backend --check --offline`: `Resolved 68 packages in 51ms`, exit 0. Claims scanner: `Claims lint passed.` `git diff --check` passed. The maintained-file repository-reference scan found no remaining old owner/repository URLs (historical decision notes and archived PRD are excluded). npm manifest/lock checks confirm unchanged dependency requirements; no install or fresh dependency audit was needed for metadata/text-only changes.
+- The built website was served only on 127.0.0.1:3200 for browser checks. The Contact page renders the confirmed channels; the Design Partner Program action points to `mailto:hello@seclume.tech?subject=Design%20partner`; served security.txt contains both security email and the renamed private-advisory contact plus the policy URL. No email action was submitted. Screenshot saved outside the repository as a review artifact.
+- No backend runtime code changed, so Redis/Docker/full backend integration tests were not repeated. Current remote CI remains unverified pending the PR/check results. Live site contacts, DNS/email delivery, Vercel Git connection and registry package availability were not changed or independently verified in this phase.
+
 ### Web dependency security remediation
 
 - This task uses `codex/t9-web-security-fix`, stacked on deployment preparation. It updates both existing Next.js applications from 16.4.3 to 16.4.6, with matching eslint-config-next versions (MIT). No backend, CI, application identifier, branding or deployment behavior changes are included.

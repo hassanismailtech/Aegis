@@ -17,4 +17,4 @@ Thank you for using Aegis. Here is how to get help, report bugs, and stay in tou
 ## Community & Questions
 
 - **GitHub Discussions**: For questions about setup, architecture, or integrations.
-- **Contact**: [Open a public GitHub issue](https://github.com/hassanismailtech/Aegis/issues/new) for general questions or feedback. Do not include sensitive personal data.
+- **Contact**: [Open a public GitHub issue](https://github.com/hassanismailtech/seclume/issues/new) for general questions or feedback. Do not include sensitive personal data.
