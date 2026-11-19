@@ -17,7 +17,7 @@
 | Dual audience | Platform engineers (Tobi) and DPOs / compliance (Femi) get parallel paths under Solutions and Trust. DPCOs are a channel (influencer), not only end buyers. |
 | Open source vs Cloud | Product mega-menu splits **self-hosted open core** from **paid / Nigeria-hosted managed**. Never present Cloud items as if they are in the OSS Quickstart. |
 | In-boundary only | Managed Nodes = Nigeria-hosted or customer-VPC operated. No `proxy.aegis.dev`-style offshore PII path (`LANDING_COPY` / STRATEGY). |
-| Evidence over assurance | Trust pages explain architecture, methodology, and frameworks. Never H1 or describe as “NDPA-compliant” / “legal” / “guarantees” (`CLAIMS.md`, STRATEGY §2–3). |
+| Evidence over assurance | Trust pages explain architecture, methodology, and frameworks. Never H1 or describe as “NDPA-compliant” / “legal” / “guarantees” (`CLAIMS.md`, STRATEGY §2–3). <!-- claims-lint: allow: prohibited-phrase examples --> |
 | Glossary lock | Use Placeholder, Session Map, Scrubber, Reinjector, Upstream, Wire Tap exactly. Never “token” or “tag” for Placeholders. |
 | Docs vs marketing | Marketing site (`website/`) on Vercel; docs as Docusaurus in `docs-site/` → `docs.<domain>` (WEBSITE plan §3–4). Playground is no-login, synthetic data only (`POST /v1/playground/scrub`). |
 | Access model | Public Playground (no accounts) · Invited design partners (access code + BFF cookie) · Self-hosted production (tenant keys; SSO later). Skip Clerk/Auth0 for now. |
@@ -202,7 +202,7 @@ For each row: **URL** · **H1** · **Purpose (1 sentence)**.
 | `/trust` | Trust & Security | Hub for architecture, methodology, subprocessors, status, and frameworks. | shipped |
 | `/trust/architecture` | Security Architecture | Boundary diagram: scrub → Session Map → Upstream → reinject; fail-closed paths. | shipped |
 | `/trust/wire-tap` | Wire Tap & evidence | How post-scrub evidence is produced and what it never contains. | shipped |
-| `/trust/limitations` | What Aegis does not do | Explicit non-goals: no legal guarantee, no adversarial evasion claim, ephemeral Redis, etc. | shipped |
+| `/trust/limitations` | What Aegis does not do | Explicit non-goals: no legal assurance, no adversarial evasion claim, ephemeral Redis, etc. | shipped |
 | `/trust/methodology` | Claims & Methodology | How leak tests and recall evals are run; links to `CLAIMS.md` / `metrics.txt` sourcing rules. | shipped |
 | `/trust/subprocessors` | Subprocessors | Processors for marketing site, email routing, and Nigeria-hosted Cloud (OSS self-host has none by default). Disclose offshore marketing processors honestly. | roadmap |
 | `/trust/status` | Status | Status for managed offerings (later); OSS users monitor their own deploy. | roadmap |
@@ -821,7 +821,7 @@ export type SiteNav = {
 
 ## 8. Implementation notes (for later build steps)
 
-1. **Do not write marketing copy in this file’s follow-on PRs without `CLAIMS.md` review.** Framework pages especially must avoid “compliant / legal / without violating NDPA”.
+1. **Do not write marketing copy in this file’s follow-on PRs without `CLAIMS.md` review.** Framework pages especially must avoid “compliant / legal / without violating NDPA”. <!-- claims-lint: allow: prohibited-phrase examples -->
 2. **Cloud pages** should visually badge “Managed / Coming” until features ship; OSS pages must not imply managed failover exists in Compose today.
 3. **Playground** accepts no login and must refuse or clearly sandbox real PII (synthetic-only Acceptable Use).
 4. **Status URL** may become external (`status.aegis…`); keep `/trust/status` as a redirect wrapper so footer/nav stay stable.
