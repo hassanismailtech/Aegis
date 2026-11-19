@@ -40,7 +40,7 @@ Open the printed local dashboard URL and select the request. The Wire View shows
 
 ## Optional checks and cleanup
 
-With Python 3.12 and uv installed, `uv run --directory backend python -m app.cli doctor` checks local dependencies. It does not prove an authenticated provider request succeeds. The complete backend test suite requires real Redis: `uv run --directory backend pytest -q`. CI starts native Redis on Ubuntu with persistence disabled; mandatory real-Redis tests do not skip when it is unavailable.
+With Python 3.12 and uv installed, `uv run --directory backend python -m app.cli doctor` checks local dependencies. It does not prove an authenticated provider request succeeds. The complete backend test suite requires real Redis and `CADDY_BIN` pointing to a verified Caddy executable: `uv run --directory backend pytest -q`. CI starts native Redis on Ubuntu with persistence disabled and downloads a checksum-verified Caddy release for ingress tests. Mandatory real-Redis and Caddy tests do not silently skip when their prerequisites are unavailable.
 
 Stop the demo with `docker compose down`. Redis has no configured persistence or volume. The existing SQLite audit file is separate; do not describe the whole application as storage-free. See [configuration](configuration.md), [security model](security-model.md) and [limitations](limitations.md) before connecting a real Upstream or changing network exposure.
 

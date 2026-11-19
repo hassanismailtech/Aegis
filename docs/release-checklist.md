@@ -28,4 +28,4 @@ When release creation is authorized, prepare attachments from the exact approved
 
 Only after the gates and authorization are satisfied should the changelog move to a dated release section and its comparison links be updated. Confirm the version tag points to the reviewed commit, record the published image digest, and test anonymous access from an isolated client configuration without logging out or changing the user's existing registry account. A local wheel build does not prove container/platform compatibility or anonymous image availability.
 
-Deployment preparation is a later task. No host, DNS, TLS certificate, Caddy hostname or live service is configured here.
+The separate [deployment preparation](deployment.md) covers the isolated synthetic playground profile. No host, DNS, TLS certificate, Caddy hostname or live service is configured here.

@@ -37,6 +37,19 @@ jobs:
             sleep 1
           done
           exit 1
+      - name: Prepare verified Caddy for ingress tests
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_amd64.tar.gz \
+            --output "$RUNNER_TEMP/caddy.tar.gz"
+          curl --fail --silent --show-error --location \
+            https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_checksums.txt \
+            --output "$RUNNER_TEMP/caddy-checksums.txt"
+          awk '$2 == "caddy_2.11.9_linux_amd64.tar.gz" { print $1 "  caddy.tar.gz" }' \
+            "$RUNNER_TEMP/caddy-checksums.txt" > "$RUNNER_TEMP/caddy.sha512"
+          (cd "$RUNNER_TEMP" && sha512sum --check caddy.sha512)
+          tar -xzf "$RUNNER_TEMP/caddy.tar.gz" -C "$RUNNER_TEMP" caddy
+          echo "CADDY_BIN=$RUNNER_TEMP/caddy" >> "$GITHUB_ENV"
       - uses: astral-sh/setup-uv@v5
         with: { enable-cache: true }
       - uses: actions/cache@v4
@@ -93,6 +106,19 @@ jobs:
           docker compose exec -T aegis python -c \
             "import json, urllib.request; r = json.load(urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=5)); assert r['status'] == 'ready' and r['redis'] == 'ok'"
           docker compose ps
+      - name: Check isolated playground deployment
+        env:
+          CORS_ORIGINS: http://localhost:3000
+        run: |
+          docker compose down --remove-orphans
+          docker compose -f deploy/compose.playground.yml -p aegis-playground-ci config --quiet
+          docker compose -f deploy/compose.playground.yml -p aegis-playground-ci \
+            up --detach --no-build --wait --wait-timeout 180
+          docker compose -f deploy/compose.playground.yml -p aegis-playground-ci exec -T aegis \
+            python -c "import json,sys,urllib.request; f=json.load(sys.stdin)[0]; q=urllib.request.Request('http://127.0.0.1:8000/v1/playground/scrub',data=json.dumps({'text':f['text']}).encode(),headers={'Content-Type':'application/json'}); r=json.load(urllib.request.urlopen(q,timeout=10)); assert r['mode']=='lite' and 'reinjected_reply' not in r; assert all(v not in r['scrubbed'] for v in f['planted'])" \
+            < demo/prompts.json
+          test "$(docker compose -f deploy/compose.playground.yml -p aegis-playground-ci \
+            exec -T redis redis-cli exists aegis:events aegis:stats)" = "0"
       - name: Remove test containers
         if: always()
         run: |
@@ -100,6 +126,8 @@ jobs:
             docker rm --force startup-guard
           fi
           docker compose down --remove-orphans
+          CORS_ORIGINS=http://localhost:3000 docker compose \
+            -f deploy/compose.playground.yml -p aegis-playground-ci down --remove-orphans
   frontend:
     runs-on: ubuntu-latest
     steps:

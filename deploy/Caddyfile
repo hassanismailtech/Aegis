@@ -1,0 +1,26 @@
+{
+	admin off
+	persist_config off
+	log {
+		output discard
+	}
+}
+
+{$PLAYGROUND_HOST} {
+	@playground {
+		path /v1/playground/scrub
+		method POST OPTIONS
+	}
+	handle @playground {
+		header Access-Control-Expose-Headers Retry-After
+		reverse_proxy 127.0.0.1:8000 {
+			header_up -Authorization
+			header_up -Cookie
+			header_up -X-Upstream-*
+		}
+	}
+
+	handle {
+		respond "Not found." 404
+	}
+}
