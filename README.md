@@ -8,8 +8,8 @@ Aegis is an OpenAI- and Anthropic-compatible Proxy. Its Scrubber replaces detect
 
 [Visit Aegis on the web →](https://website-woad-six-53.vercel.app)
 
-[![CI](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/ci.yml)
-[![Evaluation](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml/badge.svg)](https://github.com/hassanismailtech/Aegis/actions/workflows/eval.yml)
+[![CI](https://github.com/hassanismailtech/seclume/actions/workflows/ci.yml/badge.svg)](https://github.com/hassanismailtech/seclume/actions/workflows/ci.yml)
+[![Evaluation](https://github.com/hassanismailtech/seclume/actions/workflows/eval.yml/badge.svg)](https://github.com/hassanismailtech/seclume/actions/workflows/eval.yml)
 [![License: Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](backend/pyproject.toml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](frontend/package.json)
@@ -82,8 +82,8 @@ docs/          Requirements, claims register, metrics, and operating guides
 Clone the repository and create a local environment file. Never commit <code>.env</code> or put real personal data in it.
 
 ~~~bash
-git clone https://github.com/hassanismailtech/Aegis.git
-cd Aegis
+git clone https://github.com/hassanismailtech/seclume.git
+cd seclume
 cp .env.example .env
 uv sync --project backend
 npm --prefix frontend ci

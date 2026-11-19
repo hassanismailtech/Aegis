@@ -4,7 +4,7 @@ Aegis sits between applications and external models, so we take reports seriousl
 
 ## Reporting a vulnerability
 
-Report privately through GitHub **Security → Report a vulnerability** on this repository (private advisory). Please do not open a public issue for security problems.
+Report privately to [security@seclume.tech](mailto:security@seclume.tech) or through [GitHub Security → Report a vulnerability](https://github.com/hassanismailtech/seclume/security/advisories/new) (private advisory). Please do not open a public issue for security problems.
 
 Include: affected version or commit, steps to reproduce, impact, and any proof of concept. **Use synthetic data only. Never send us real personal data.**
 

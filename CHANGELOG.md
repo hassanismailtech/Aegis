@@ -18,7 +18,7 @@ Planned target: **0.4.0**. These changes are prepared on task branches and have 
 
 ### Changed
 - Python package metadata is aligned to the planned release version; dependency requirements and locked third-party versions are unchanged.
-- The repository/product name remains Aegis. Existing `AEGIS_*` settings, `X-Aegis-*` headers, CLI name and Redis prefixes are unchanged; no rebrand or registry-image publication is claimed.
+- The repository is now `hassanismailtech/seclume`. Existing `AEGIS_*` settings, `X-Aegis-*` headers, CLI name and Redis prefixes are unchanged; visual rebranding and registry-image publication remain separate work.
 
 ## [0.3.0] - 2026-10-28
 ### Added
@@ -41,7 +41,7 @@ Planned target: **0.4.0**. These changes are prepared on task branches and have 
 ### Added
 - PAU 24-Hour Hackathon build: OpenAI-compatible proxy, Nigerian entity scrubbing (patterns, gazetteer, GLiNER), Redis Session Map, Reinjector, Wire Tap, telemetry stream, dashboard, mock Upstream, SDK demo agent, leak test.
 
-[Unreleased]: https://github.com/hassanismailtech/Aegis/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/hassanismailtech/Aegis/releases/tag/v0.3.0
-[0.2.0]: https://github.com/hassanismailtech/Aegis/releases/tag/v0.2.0
-[0.1.0]: https://github.com/hassanismailtech/Aegis/releases/tag/v0.1.0
+[Unreleased]: https://github.com/hassanismailtech/seclume/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/hassanismailtech/seclume/releases/tag/v0.3.0
+[0.2.0]: https://github.com/hassanismailtech/seclume/releases/tag/v0.2.0
+[0.1.0]: https://github.com/hassanismailtech/seclume/releases/tag/v0.1.0

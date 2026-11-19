@@ -22,4 +22,4 @@ Keep Redis and operational routes private, use TLS and tenant authentication for
 
 Playground requests have their own temporary Session Map and cleanup/TTL fallback. They return only scrubbed output and a simulated reply, emit no Telemetry Events and do not call Upstream. A detection miss can still appear in the Scrubber output: public demos must use synthetic data. This behavior does not describe normal Proxy telemetry or the caller's chat history.
 
-Report vulnerabilities through [GitHub private security advisories](https://github.com/hassanismailtech/Aegis/security/advisories/new), using synthetic reproductions. See [SECURITY.md](../SECURITY.md) for the existing reporting policy.
+Report vulnerabilities through [GitHub private security advisories](https://github.com/hassanismailtech/seclume/security/advisories/new), using synthetic reproductions. See [SECURITY.md](../SECURITY.md) for the existing reporting policy.

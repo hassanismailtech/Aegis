@@ -67,7 +67,7 @@ export default function Home() {
             <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-white md:text-4xl">Know what your agent sends upstream.</h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">A live view of scrubbed traffic, entity detection and the exact post-scrub messages received by your Upstream.</p>
           </div>
-          <a className="inline-flex items-center gap-1.5 text-sm text-cyan-300 transition-colors hover:text-cyan-200" href="https://github.com/hassanismailtech/Aegis" target="_blank" rel="noreferrer">View source <ArrowUpRight className="size-4" /></a>
+          <a className="inline-flex items-center gap-1.5 text-sm text-cyan-300 transition-colors hover:text-cyan-200" href="https://github.com/hassanismailtech/seclume" target="_blank" rel="noreferrer">View source <ArrowUpRight className="size-4" /></a>
         </section>
         {events.length === 0 && (
           <section className="flex flex-col items-start justify-between gap-5 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.04] p-5 sm:flex-row sm:items-center">
