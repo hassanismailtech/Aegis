@@ -1,0 +1,51 @@
+name: aegis-playground
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    tmpfs: ["/data"]
+    networks: [private]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  aegis:
+    image: ${SECLUME_IMAGE:?Set SECLUME_IMAGE to the reviewed local image or digest}
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - -c
+      - exec uvicorn app.main:app --host "$$BIND_HOST" --port 8000 --no-access-log --no-proxy-headers
+    environment:
+      BIND_HOST: "0.0.0.0"
+      AEGIS_INSECURE_DEV: "1" # isolated synthetic endpoint; never expose this port publicly
+      AEGIS_KEYS_FILE: ""
+      AEGIS_TICKET_SECRET: ""
+      AEGIS_DEMO_TOKEN: ""
+      PLAYGROUND_ENABLED: "true"
+      PLAYGROUND_TRUST_PROXY: "true"
+      PLAYGROUND_MAX_CHARS: "2000"
+      PLAYGROUND_RATE_PER_MINUTE: "20"
+      NER_ENABLED: "false"
+      NER_CACHE_TTL_SECONDS: "0"
+      FORWARDED_ALLOW_IPS: ""
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS to the reviewed website origin}
+      REDIS_URL: redis://redis:6379/0
+      UPSTREAM_BASE_URL: http://127.0.0.1:9/v1
+      UPSTREAM_API_KEY: ""
+      AUDIT_DB_PATH: /tmp/aegis/audit.db
+    ports: ["127.0.0.1:8000:8000"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    networks: [private]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+networks:
+  private:
+    internal: true
