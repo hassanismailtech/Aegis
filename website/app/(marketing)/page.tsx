@@ -46,7 +46,7 @@ const steps = [
   {
     number: "02",
     title: "Remember, briefly.",
-    body: "The mapping from placeholder to real value lives in Redis only, with snapshots and append-only logging disabled and a sliding expiry (default 300 s). Same person, same placeholder, across a conversation.",
+    body: "The Session Map lives in Redis with snapshots and append-only logging disabled and a sliding expiry. Same person, same Placeholder across a conversation (when the client sends X-Aegis-Session).",
     icon: Database,
   },
   {
@@ -58,10 +58,9 @@ const steps = [
 ];
 
 const evidence = [
-  ["Rule layer overhead (60 words)", "p50 0.18 ms, p95 0.68 ms", "bench_scrub.py"],
-  ["Model layer overhead (60 words, 4-core CPU)", "p50 429 ms, p95 1271 ms", "bench_scrub.py"],
+  ["Performance", "Measure rule and model overhead on your own hardware", "bench_scrub.py"],
   ["Leak test", "0 leaks / 35 planted entities across 12 prompts", "test_no_leak.py"],
-  ["Per-type recall and precision (held-out set)", "PERSON: 96.9% recall, 61.9% precision", "eval_recall.py"],
+  ["Per-type recall and precision (synthetic regression set, project-authored)", "PERSON: 96.9% recall, 61.9% precision", "eval_recall.py"],
 ];
 
 const deploymentOptions = [
@@ -277,7 +276,7 @@ export default function HomePage() {
               "It does not make a transfer lawful on its own. Pseudonymised data can still be personal data.",
               "Names are detected by a model, so recall is not 100%. Structured IDs are rule-detected.",
               "It does not protect against the upstream provider's own retention. Check your provider terms.",
-              "Streaming is currently buffered, not token-by-token.",
+              "Streaming holds back incomplete Placeholders; it does not wait for the whole reply.",
             ].map((item) => <div key={item} className="flex gap-3 text-sm leading-6 text-zinc-500"><X className="mt-0.5 size-4 shrink-0" />{item}</div>)}
           </div>
         </div>
@@ -288,9 +287,9 @@ export default function HomePage() {
           <CardContent className="flex flex-col items-start justify-between gap-6 py-8 sm:flex-row sm:items-end sm:py-10">
             <div>
               <h2 className="max-w-2xl text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">Building with agents in a Nigerian bank, fintech or hospital?</h2>
-              <p className="mt-3 max-w-2xl leading-7 text-zinc-400">We are working with a small number of design partners on real formats and real policy needs. Free self-hosted pilot. A human replies within 24 hours.</p>
+              <p className="mt-3 max-w-2xl leading-7 text-zinc-400">We are looking for a small number of design partners to test Aegis on real formats and policy needs. Free self-hosted pilot.</p>
             </div>
-            <Button render={<a href="mailto:?subject=Aegis%20design%20partner&body=[work%20email]%0A[role]%0A[what%20you%20want%20to%20protect]" />} className="bg-cyan-400 text-zinc-950 hover:bg-cyan-300">Apply <ArrowRight data-icon="inline-end" /></Button>
+            <Button render={<Link href="/company/design-partners" />} className="bg-cyan-400 text-zinc-950 hover:bg-cyan-300">Explore the pilot <ArrowRight data-icon="inline-end" /></Button>
           </CardContent>
         </Card>
       </section>

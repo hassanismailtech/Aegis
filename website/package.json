@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test tests/playground.test.mjs"
+    "test": "node --experimental-strip-types --test tests/playground.test.mjs tests/public-site.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
