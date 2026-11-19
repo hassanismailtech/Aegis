@@ -27,6 +27,7 @@ from app.config import settings
 from app.errors import ScrubError, aegis_error, anthropic_error
 from app.limits import BodySizeLimitMiddleware, consume_rate_limit
 from app.logs import log_request, log_telemetry
+from app.playground import PLAYGROUND_PATH, router as playground_router
 from app.schemas import ChatRequest, MessagesRequest
 from app.session_map import SessionMap
 from app.scrubber import scrub_messages
@@ -115,11 +116,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(playground_router)
 
 
 @app.exception_handler(RequestValidationError)
-async def openai_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
-    message = f"Invalid request body: {exc}"
+async def openai_validation_error(request: Request, _exc: RequestValidationError) -> JSONResponse:
+    message = "Invalid request body."
+    if request.url.path == PLAYGROUND_PATH:
+        enabled = settings.playground_enabled
+        return JSONResponse(
+            status_code=422 if enabled else 404,
+            content=aegis_error(
+                message if enabled else "Not found.",
+                "aegis_invalid_request" if enabled else "aegis_not_found",
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
     if request.url.path == "/v1/messages":
         return JSONResponse(status_code=400, content=anthropic_error(message))
     return JSONResponse(
