@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { BrandMark } from "@/components/BrandMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ArrowRight,
   Boxes,
@@ -122,7 +124,7 @@ const solutionLinks: MenuLink[] = [
 const developerLinks: MenuLink[] = [
   {
     title: "Quickstart",
-    description: "Bring up Aegis and change your SDK base URL.",
+    description: "Bring up Seclume and change your SDK base URL.",
     href: "/developers/quickstart",
     icon: Terminal,
   },
@@ -148,7 +150,7 @@ const developerLinks: MenuLink[] = [
 
 const companyLinks: MenuLink[] = [
   {
-    title: "About Aegis",
+    title: "About Seclume",
     description: "The open-source data-boundary project.",
     href: "/company/about",
     icon: ShieldCheck,
@@ -185,20 +187,20 @@ function MegaMenu({
   href: string;
 }) {
   return (
-    <div className="grid w-[min(44rem,calc(100vw-2rem))] grid-cols-[0.8fr_1.2fr] overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-white/10">
+    <div className="grid w-[min(44rem,calc(100vw-2rem))] grid-cols-[0.8fr_1.2fr] overflow-hidden rounded-xl bg-card ring-1 ring-border">
       <Link
         href={href}
-        className="group flex min-h-72 flex-col justify-between border-r border-white/10 bg-cyan-400/[0.06] p-6 transition-colors duration-150 ease-in-out hover:bg-cyan-400/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+        className="group flex min-h-72 flex-col justify-between border-r border-border bg-muted p-6 transition-colors duration-150 ease-in-out hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">
+          <p className="font-sans text-xs uppercase tracking-[0.16em] text-primary">
             {eyebrow}
           </p>
-          <p className="mt-3 text-xl font-semibold tracking-tight text-zinc-50">
+          <p className="mt-3 text-xl font-semibold tracking-tight text-foreground">
             {title}
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 text-sm font-medium text-cyan-200">
+        <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
           Explore <ArrowRight className="size-4 transition-transform duration-150 ease-in-out group-hover:translate-x-1" />
         </span>
       </Link>
@@ -208,12 +210,12 @@ function MegaMenu({
             key={linkHref}
             render={<Link href={linkHref} />}
             closeOnClick
-            className="group rounded-lg p-3 hover:bg-white/[0.06] focus:bg-white/[0.06]"
+            className="group rounded-lg p-3 hover:bg-muted focus:bg-muted"
           >
-            <Icon className="mt-0.5 size-4 shrink-0 text-cyan-300" aria-hidden="true" />
+            <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
             <span>
-              <span className="block font-medium text-zinc-100">{linkTitle}</span>
-              <span className="mt-0.5 block text-xs leading-5 text-zinc-400">{description}</span>
+              <span className="block font-medium text-foreground">{linkTitle}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{description}</span>
             </span>
           </NavigationMenuLink>
         ))}
@@ -224,7 +226,7 @@ function MegaMenu({
 
 function MobileLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <SheetClose render={<Link href={href} />} className="rounded-md px-3 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 ease-in-out hover:bg-white/[0.06] hover:text-cyan-200">
+    <SheetClose render={<Link href={href} />} className="rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 ease-in-out hover:bg-muted hover:text-primary">
       {children}
     </SheetClose>
   );
@@ -235,75 +237,74 @@ export function GlobalNav() {
     ? process.env.NEXT_PUBLIC_APP_URL
     : undefined;
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="inline-flex items-center gap-2 font-semibold tracking-tight text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400">
-          <span className="grid size-7 place-items-center rounded-md bg-cyan-400 font-mono text-sm font-bold text-zinc-950">A</span>
-          Aegis
+    <header className="sticky top-0 z-40 border-b border-border bg-background px-4 sm:px-6">
+      <div className="mx-auto flex h-18 max-w-[1120px] items-center justify-between gap-4">
+        <Link href="/" className="site-wordmark inline-flex items-center gap-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <BrandMark />
+          Seclume
         </Link>
 
         <NavigationMenu className="hidden lg:flex" align="start">
           <NavigationMenuList className="gap-1">
             <NavigationMenuItem>
-              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Product</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="text-foreground hover:bg-muted hover:text-foreground focus:bg-muted">Product</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={productLinks} eyebrow="Product" title="A data boundary for AI systems." href="/product" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Solutions</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="text-foreground hover:bg-muted hover:text-foreground focus:bg-muted">Solutions</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={solutionLinks} eyebrow="Solutions" title="Routes for the people who operate the boundary." href="/solutions" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Developers</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="text-foreground hover:bg-muted hover:text-foreground focus:bg-muted">Developers</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={developerLinks} eyebrow="Developers" title="Integrate without rewriting your agents." href="/developers" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Trust &amp; Security</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="text-foreground hover:bg-muted hover:text-foreground focus:bg-muted">Trust</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={trustLinks} eyebrow="Trust" title="Evidence, architecture, and limits." href="/trust" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuTrigger className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50 focus:bg-white/[0.06]">Company</NavigationMenuTrigger>
+              <NavigationMenuTrigger className="text-foreground hover:bg-muted hover:text-foreground focus:bg-muted">Company</NavigationMenuTrigger>
               <NavigationMenuContent>
                 <MegaMenu links={companyLinks} eyebrow="Company" title="An open-source project with a clear boundary." href="/company" />
               </NavigationMenuContent>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink render={<Link href="/docs" />} className="px-2.5 py-1.5 text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">
+              <NavigationMenuLink render={<Link href="/docs" />} className="px-2.5 py-1.5 text-foreground hover:bg-muted hover:text-foreground">
                 Docs
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink render={<Link href="/pricing" />} className="px-2.5 py-1.5 text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">
+              <NavigationMenuLink render={<Link href="/pricing" />} className="px-2.5 py-1.5 text-foreground hover:bg-muted hover:text-foreground">
                 Pricing
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          {dashboardUrl && <Button variant="ghost" render={<a href={dashboardUrl} />} className="text-zinc-300 hover:bg-white/[0.06] hover:text-zinc-50">Dashboard</Button>}
-          <Button variant="outline" render={<Link href="/pricing" />} className="border-white/10 bg-zinc-900 text-zinc-100 hover:bg-zinc-800">
+        <div className="flex items-center gap-2"><ThemeToggle /><div className="hidden items-center gap-2 lg:flex">
+          {dashboardUrl && <Button variant="ghost" render={<a href={dashboardUrl} />} className="text-foreground hover:bg-muted hover:text-foreground">Dashboard</Button>}
+          <Button variant="outline" render={<Link href="/pricing" />} className="border-border bg-card text-foreground hover:bg-muted">
             Design partners
           </Button>
-          <Button render={<Link href="/playground" />} className="bg-cyan-400 text-zinc-950 hover:bg-cyan-300">
+          <Button render={<Link href="/playground" />} className="bg-primary text-primary-foreground hover:bg-primary">
             Playground
           </Button>
         </div>
-
         <Sheet>
-          <SheetTrigger render={<Button variant="outline" size="icon" className="border-white/10 bg-zinc-900 text-zinc-100 hover:bg-zinc-800 lg:hidden" aria-label="Open navigation" />}>
+          <SheetTrigger render={<Button variant="outline" size="icon" className="border-border bg-card text-foreground hover:bg-muted lg:hidden" aria-label="Open navigation" />}>
             <Menu className="size-4" />
           </SheetTrigger>
-          <SheetContent className="w-[min(22rem,90vw)] border-l border-white/10 bg-zinc-950 p-0 text-zinc-50" side="right">
-            <SheetHeader className="border-b border-white/10 px-5 py-4">
-              <SheetTitle className="text-zinc-50">Navigate Aegis</SheetTitle>
+          <SheetContent className="w-[min(22rem,90vw)] border-l border-border bg-background p-0 text-foreground" side="right">
+            <SheetHeader className="border-b border-border px-5 py-4">
+              <SheetTitle className="text-foreground">Navigate Seclume</SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col gap-1 p-3" aria-label="Mobile navigation">
               <MobileLink href="/product">Product</MobileLink>
@@ -319,10 +320,11 @@ export function GlobalNav() {
               <MobileLink href="/docs">Docs</MobileLink>
               <MobileLink href="/pricing">Pricing</MobileLink>
               <MobileLink href="/playground">Playground</MobileLink>
-              {dashboardUrl && <SheetClose render={<a href={dashboardUrl} />} className="rounded-md px-3 py-2 text-sm font-medium text-zinc-200 transition-colors duration-150 ease-in-out hover:bg-white/[0.06] hover:text-cyan-200">Dashboard</SheetClose>}
+              {dashboardUrl && <SheetClose render={<a href={dashboardUrl} />} className="rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 ease-in-out hover:bg-muted hover:text-primary">Dashboard</SheetClose>}
             </nav>
           </SheetContent>
         </Sheet>
+        </div>
       </div>
     </header>
   );

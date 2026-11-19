@@ -11,7 +11,6 @@ import {
   Server,
   ShieldCheck,
   Terminal,
-  Waypoints,
   X,
 } from "lucide-react";
 
@@ -24,35 +23,35 @@ const composeCommand = "docker compose up";
 const problemCards = [
   {
     title: "Transfers need a basis.",
-    body: "Section 41 allows personal data to leave Nigeria only on an adequacy basis or a section 43 ground such as informed consent, and requires you to record the basis. Penalties for breach can reach the greater of ₦10m or 2% of annual gross revenue for organisations of major importance.",
+    body: "Pseudonymisation reduces exposure. It does not make a transfer lawful on its own; each organisation must assess its own requirements.",
   },
   {
     title: "Agents multiply the exposure.",
     body: "Prompts, tool arguments and tool results all carry customer data to an external API.",
   },
   {
-    title: "Rewriting prompts by hand does not scale.",
-    body: "Custom redaction code is brittle, misses tool calls, and leaves no evidence.",
+    title: "Inspect the boundary.",
+    body: "The Wire Tap records what Upstream received after scrubbing.",
   },
 ];
 
 const steps = [
   {
-    number: "01",
+    number: "1",
     title: "Scrub, locally.",
     body: "Rules detect phones, BVN/NIN-format numbers, account numbers (with context) and emails. A name gazetteer and a small local model detect person names. Nothing is sent anywhere for detection.",
     icon: ShieldCheck,
   },
   {
-    number: "02",
+    number: "2",
     title: "Remember, briefly.",
     body: "The Session Map lives in Redis with snapshots and append-only logging disabled and a sliding expiry. Same person, same Placeholder across a conversation (when the client sends X-Aegis-Session).",
     icon: Database,
   },
   {
-    number: "03",
+    number: "3",
     title: "Reinject.",
-    body: "Placeholders in the reply, including inside tool-call arguments, are swapped back before your app sees them. If state is lost, Aegis returns placeholders rather than guessing.",
+    body: "Placeholders in the reply, including inside tool-call arguments, are swapped back before your app sees them. If state is lost, Seclume returns placeholders rather than guessing.",
     icon: Network,
   },
 ];
@@ -60,7 +59,7 @@ const steps = [
 const evidence = [
   ["Performance", "Measure rule and model overhead on your own hardware", "bench_scrub.py"],
   ["Leak test", "0 leaks / 35 planted entities across 12 prompts", "test_no_leak.py"],
-  ["Per-type recall and precision (synthetic regression set, project-authored)", "PERSON: 96.9% recall, 61.9% precision", "eval_recall.py"],
+  ["Per-type recall and precision (synthetic regression set, project-authored)", "PERSON: 96.9% recall, 61.9% precision", "eval_heldout.py"],
 ];
 
 const deploymentOptions = [
@@ -75,7 +74,7 @@ function CopyComposeCommand() {
   }
 
   return (
-    <Button onClick={copyCommand} className="h-10 bg-cyan-400 px-4 font-mono text-sm text-zinc-950 hover:bg-cyan-300">
+    <Button onClick={copyCommand} className="h-10 bg-primary px-4 font-sans text-sm text-primary-foreground hover:bg-primary">
       <Terminal data-icon="inline-start" />
       {composeCommand}
       <Copy data-icon="inline-end" />
@@ -84,100 +83,45 @@ function CopyComposeCommand() {
   );
 }
 
-function TelemetryPreview() {
-  return (
-    <div className="telemetry-preview relative overflow-hidden rounded-xl bg-zinc-950 p-1 ring-1 ring-white/10">
-      <div className="relative overflow-hidden rounded-[0.7rem] border border-white/10 bg-zinc-900/80">
-        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-          <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-zinc-400">
-            <span className="size-2 rounded-full bg-cyan-300" />
-            Telemetry control plane
-          </div>
-          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-emerald-300"><span className="size-1.5 rounded-full bg-emerald-300" />post-scrub only</span>
-        </div>
-        <div className="grid gap-px bg-white/10 sm:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-3 bg-zinc-900 p-4">
-            <div className="flex items-center justify-between"><span className="font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500">Boundary event</span><span className="font-mono text-xs text-cyan-200">req_••••</span></div>
-            <div className="rounded-md border border-cyan-300/20 bg-cyan-300/[0.05] p-3 font-mono text-xs leading-6 text-cyan-100">
-              <span className="text-zinc-500">Upstream received</span><br />
-              Transfer to <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[PERSON_1]]</span><br />
-              <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[BVN_1]]</span> · <span className="rounded bg-cyan-300/10 px-1 text-cyan-200">[[PHONE_1]]</span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 font-mono text-[10px] tabular-nums text-zinc-400">
-              <div><p className="text-zinc-500">entities</p><p className="mt-1 text-base text-zinc-100">03</p></div>
-              <div><p className="text-zinc-500">status</p><p className="mt-1 text-base text-emerald-300">ok</p></div>
-              <div><p className="text-zinc-500">Wire Tap</p><p className="mt-1 text-base text-cyan-200">ready</p></div>
-            </div>
-          </div>
-          <div className="bg-zinc-950 p-4">
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-zinc-500"><Waypoints className="size-3 text-cyan-300" /> Entity flow</div>
-            <div className="mt-4 space-y-3">
-              {["PERSON", "BVN", "PHONE"].map((label, index) => <div key={label} className="flex items-center gap-3"><span className="w-12 font-mono text-[10px] text-zinc-400">{label}</span><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${76 - index * 18}%` }} /></div><span className="font-mono text-[10px] tabular-nums text-zinc-500">0{index + 1}</span></div>)}
-            </div>
-            <div className="mt-5 border-t border-white/10 pt-3 font-mono text-[10px] leading-5 text-zinc-500">No pre-scrub text.<br />No Session Map contents.</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function HomePage() {
   return (
-    <main>
-      <section className="hero-grid relative isolate overflow-hidden px-4 pb-24 pt-24 sm:px-6 lg:pb-32 lg:pt-32">
-        <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-[38rem] bg-[radial-gradient(ellipse_at_top,rgba(6,182,212,0.16),transparent_62%)]" />
-        <div className="mx-auto max-w-5xl text-center">
-          <p className="reveal-up inline-flex items-center gap-2 rounded-full bg-zinc-900/90 px-3 py-1 font-mono text-xs text-cyan-200 ring-1 ring-white/10">
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
-            Open-source PII firewall for AI agents
-          </p>
-          <h1 className="reveal-up mx-auto mt-6 max-w-4xl text-balance text-4xl font-semibold tracking-[-0.055em] text-zinc-50 sm:text-6xl lg:text-7xl">
-            Keep Nigerian customer identifiers out of your LLM prompts.
+    <main id="main-content" className="landing-page">
+      <section className="hero-section relative isolate overflow-hidden px-4 pb-24 pt-24 sm:px-6 lg:pb-32 lg:pt-32">        <div className="mx-auto max-w-[1120px] text-left">          <h1 className="hero-title mt-6">
+            A data boundary for AI agents.
           </h1>
-          <p className="reveal-up mx-auto mt-6 max-w-3xl text-pretty text-base leading-7 text-zinc-300 sm:text-lg">
-            Aegis is an OpenAI-compatible proxy that runs inside your network. It swaps BVNs, NINs, account numbers, phone numbers, emails and names for Placeholders before a request reaches an external model, then puts the real values back in the reply. A Wire Tap shows exactly what left.
+          <p className="hero-description mt-6 text-muted-foreground">
+            An OpenAI- and Anthropic-compatible Proxy that replaces detected Nigerian identifiers with Placeholders before an external model call.
           </p>
-          <div className="reveal-up mt-8 flex flex-wrap justify-center gap-3">
-            <CopyComposeCommand />
-            <Button variant="outline" render={<Link href="#evidence" />} className="h-10 border-white/10 bg-zinc-900 px-4 text-zinc-100 hover:bg-zinc-800">
-              Read the evidence
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button render={<Link href="/playground" />} className="h-11 bg-primary px-5 text-primary-foreground hover:bg-primary">Try the playground</Button>
+            <Button variant="outline" render={<a href="https://github.com/hassanismailtech/seclume" />} className="h-10 border-border bg-card px-4 text-foreground hover:bg-muted">
+              View on GitHub
               <ArrowRight data-icon="inline-end" />
             </Button>
           </div>
         </div>
 
-        <div className="reveal-up mx-auto mt-16 max-w-4xl overflow-hidden rounded-xl bg-zinc-900/95 text-left ring-1 ring-white/10">
-          <div className="flex h-10 items-center gap-2 border-b border-white/10 px-4">
-            <span className="size-2 rounded-full bg-zinc-600" />
-            <span className="size-2 rounded-full bg-zinc-600" />
-            <span className="size-2 rounded-full bg-zinc-600" />
-            <span className="ml-2 font-mono text-xs text-zinc-500">aegis — Wire Tap preview</span>
+        <div className="mx-auto mt-14 max-w-[1120px] overflow-hidden rounded-xl bg-card text-left ring-1 ring-border">
+          <div className="flex h-10 items-center gap-2 border-b border-border px-4">            <span className="ml-2 font-sans text-xs text-muted-foreground">Synthetic Wire Tap example</span>
           </div>
           <pre className="overflow-x-auto p-5 font-mono text-xs leading-6 sm:p-7 sm:text-sm">
             <code>
-              <span className="text-zinc-400"># What your agent sends to Aegis{"\n"}</span>
-              <span className="text-rose-300">- [pre-scrub text stays in your network]{"\n"}</span>
-              <span className="text-zinc-400"># What the external model receives (Wire Tap){"\n"}</span>
-              <span className="text-emerald-300">+ Transfer ₦50,000 to [[PERSON_1]], BVN [[BVN_1]], phone [[PHONE_1]]{"\n"}</span>
-              <span className="text-zinc-400"># What your agent gets back{"\n"}</span>
-              <span className="text-emerald-300">+ Transfer initiated to Chinedu Okafor.</span>
+              <span className="text-muted-foreground"># What the external model receives (Wire Tap){"\n"}</span>
+              <span className="text-foreground">+ Transfer ₦50,000 to [[PERSON_1]], BVN [[BVN_1]], phone [[PHONE_1]]{"\n"}</span>
             </code>
           </pre>
-        </div>
-        <div className="reveal-up mx-auto mt-5 max-w-4xl"><TelemetryPreview /></div>
-      </section>
+        </div>      </section>
 
-      <section className="section-grid border-y border-white/10 bg-zinc-900/50 px-4 py-20 sm:px-6 lg:py-28">
-        <div className="mx-auto max-w-7xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">NDPA 2023 and GAID 2025</p>
+      <section className="section-grid bg-muted px-4 py-20 sm:px-6 lg:py-28">
+        <div className="mx-auto max-w-[1120px]">
+          <h2 className="section-title">A boundary you can inspect</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {problemCards.map((card) => (
-              <Card key={card.title} className="group bg-zinc-900 transition-colors duration-150 ease-in-out hover:bg-zinc-800/80 ring-white/10">
+              <Card key={card.title} className="group bg-card transition-colors duration-150 ease-in-out hover:bg-muted ring-border">
                 <CardHeader>
-                  <CardTitle className="text-lg text-zinc-50">{card.title}</CardTitle>
+                  <CardTitle className="text-lg text-foreground">{card.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="leading-6 text-zinc-400">{card.body}</CardContent>
+                <CardContent className="leading-6 text-muted-foreground">{card.body}</CardContent>
               </Card>
             ))}
           </div>
@@ -185,111 +129,111 @@ export default function HomePage() {
       </section>
 
       <section id="how-it-works" className="section-grid px-4 py-20 sm:px-6 lg:py-28">
-        <div className="mx-auto max-w-7xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">How it works</p>
+        <div className="mx-auto max-w-[1120px]">
+          <h2 className="section-title">How it works</h2>
           <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
             <div className="space-y-7">
               {steps.map(({ number, title, body, icon: Icon }) => (
                 <div key={number} className="grid grid-cols-[2.5rem_1fr] gap-4">
-                  <div className="grid size-10 place-items-center rounded-lg bg-zinc-900 font-mono text-xs text-cyan-300 ring-1 ring-white/10">{number}</div>
+                  <div className="grid size-10 place-items-center rounded-lg bg-card font-sans text-xs text-primary ring-1 ring-border">{number}</div>
                   <div>
-                    <div className="flex items-center gap-2"><Icon className="size-4 text-cyan-300" /><h2 className="font-medium text-zinc-50">{title}</h2></div>
-                    <p className="mt-2 max-w-xl leading-6 text-zinc-400">{body}</p>
+                    <div className="flex items-center gap-2"><Icon className="size-4 text-primary" /><h3 className="text-lg font-medium text-foreground">{title}</h3></div>
+                    <p className="mt-2 max-w-xl leading-6 text-muted-foreground">{body}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="overflow-x-auto rounded-xl bg-zinc-900 p-6 font-mono text-sm leading-8 text-zinc-300 ring-1 ring-white/10 sm:p-8">
-              <div className="min-w-[31rem]">
-                <p className="text-cyan-300">Agent</p>
-                <p className="text-zinc-600">  │ request with identifiers</p>
-                <p className="text-cyan-300">  ▼</p>
-                <p className="text-zinc-50">Aegis</p>
-                <p className="text-zinc-600">  ├─ Scrubber → Placeholders</p>
-                <p className="text-zinc-600">  ├─ Session Map → Redis, short expiry</p>
-                <p className="text-zinc-600">  └─ Wire Tap → post-scrub evidence</p>
-                <p className="text-cyan-300">  ▼</p>
-                <p className="text-zinc-50">Upstream</p>
-                <p className="text-zinc-600">  │ reply with Placeholders</p>
-                <p className="text-cyan-300">  ▼</p>
-                <p className="text-zinc-50">Reinjector → Agent</p>
+            <div className="overflow-x-auto rounded-xl bg-card p-6 font-sans text-sm leading-8 text-foreground ring-1 ring-border sm:p-8">
+              <div className="min-w-0">
+                <p className="text-primary">Agent</p>
+                <p className="text-muted-foreground">  │ request with identifiers</p>
+                <p className="text-primary">  ▼</p>
+                <p className="text-foreground">Seclume</p>
+                <p className="text-muted-foreground">  ├─ Scrubber → Placeholders</p>
+                <p className="text-muted-foreground">  ├─ Session Map → Redis, short expiry</p>
+                <p className="text-muted-foreground">  └─ Wire Tap → post-scrub evidence</p>
+                <p className="text-primary">  ▼</p>
+                <p className="text-foreground">Upstream</p>
+                <p className="text-muted-foreground">  │ reply with Placeholders</p>
+                <p className="text-primary">  ▼</p>
+                <p className="text-foreground">Reinjector → Agent</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-zinc-900/50 px-4 py-20 sm:px-6 lg:py-28">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+      <section className=" bg-muted px-4 py-20 sm:px-6 lg:py-28">
+        <div className="mx-auto grid max-w-[1120px] gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">One-line integration</p>
-            <p className="mt-4 max-w-md leading-7 text-zinc-300">Works with the official OpenAI SDK and Anthropic SDK, including streaming and tool calls.</p>
+            <h2 className="section-title">Start with your SDK</h2>
+            <p className="mt-4 max-w-md leading-7 text-foreground">Works with the official OpenAI SDK and Anthropic SDK, including streaming and tool calls.</p><div className="mt-6"><CopyComposeCommand /></div>
           </div>
-          <div className="overflow-x-auto rounded-xl bg-zinc-950 p-5 ring-1 ring-white/10 sm:p-7">
-            <pre className="font-mono text-sm leading-7 text-zinc-300"><code><span className="text-violet-300">from</span> openai <span className="text-violet-300">import</span> OpenAI{"\n"}client = OpenAI({"\n"}    base_url=<span className="text-emerald-300">{`"http://aegis.internal:8000/v1"`}</span>,   <span className="text-zinc-500"># was https://api.openai.com/v1</span>{"\n"}    api_key=os.environ[<span className="text-emerald-300">{`"OPENAI_API_KEY"`}</span>],{"\n"})</code></pre>
+          <div className="overflow-x-auto rounded-xl bg-background p-5 ring-1 ring-border sm:p-7">
+            <pre className="font-mono text-sm leading-7 text-foreground"><code><span className="text-foreground">from</span> openai <span className="text-foreground">import</span> OpenAI{"\n"}client = OpenAI({"\n"}    base_url=<span className="text-foreground">{`"http://aegis.internal:8000/v1"`}</span>,   <span className="text-muted-foreground"># was https://api.openai.com/v1</span>{"\n"}    api_key=os.environ[<span className="text-foreground">{`"OPENAI_API_KEY"`}</span>],{"\n"})</code></pre>
           </div>
         </div>
       </section>
 
       <section id="evidence" className="px-4 py-20 sm:px-6 lg:py-28">
         <div className="mx-auto max-w-5xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">Evidence (measured, with hardware and date)</p>
-          <div className="mt-7 rounded-xl bg-zinc-900 ring-1 ring-white/10">
+          <h2 className="section-title">Measured, with limits</h2>
+          <div className="mt-7 rounded-xl bg-card ring-1 ring-border">
             <Table>
               <TableHeader><TableRow><TableHead>Measure</TableHead><TableHead>Result</TableHead><TableHead>Source</TableHead></TableRow></TableHeader>
-              <TableBody>{evidence.map(([measure, result, source]) => <TableRow key={measure}><TableCell className="font-medium text-zinc-100">{measure}</TableCell><TableCell className="font-mono tabular-nums text-zinc-300">{result}</TableCell><TableCell className="font-mono text-xs text-cyan-300">{source}</TableCell></TableRow>)}</TableBody>
+              <TableBody>{evidence.map(([measure, result, source]) => <TableRow key={measure}><TableCell className="font-medium text-foreground">{measure}</TableCell><TableCell className="font-sans tabular-nums text-foreground">{result}</TableCell><TableCell className="font-sans text-xs text-primary"><a href={"https://github.com/hassanismailtech/seclume/blob/main/backend/" + (source.startsWith("test_") ? "tests/" : "scripts/") + source} className="hover:underline">{source}</a></TableCell></TableRow>)}</TableBody>
             </Table>
           </div>
-          <p className="mt-5 max-w-3xl text-sm leading-6 text-zinc-400">Numbers are from our own sets on the stated hardware. Deliberate evasion (leetspeak, spelled-out digits) is a known limitation. <Link href="/trust/methodology" className="text-cyan-300 underline-offset-4 hover:underline">Read the methodology.</Link></p>
+          <p className="mt-5 max-w-3xl text-sm leading-6 text-muted-foreground">Results come from our synthetic, project-authored sets, not an independent audit. Deliberate evasion (leetspeak, spelled-out digits) is a known limitation. <Link href="/trust/methodology" className="text-primary underline-offset-4 hover:underline">Read the methodology.</Link></p>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-zinc-900/50 px-4 py-20 sm:px-6 lg:py-28">
-        <div className="mx-auto max-w-7xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">Evidence for the people who sign off.</p>
-          <div className="mt-7 grid gap-px overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/10 md:grid-cols-2">
+      <section className=" bg-muted px-4 py-20 sm:px-6 lg:py-28">
+        <div className="mx-auto max-w-[1120px]">
+          <h2 className="section-title">Security and trust</h2>
+          <div className="mt-7 grid gap-px overflow-hidden rounded-xl bg-border ring-1 ring-border md:grid-cols-2">
             {[
-              "Pseudonymisation as a technical security measure (NDPA s.39(2)(a)).",
-              "A record of what crossed the boundary, per request (supports s.41(2) transfer records). Export format: roadmap.",
-              "Inputs for your DPIA (s.28) and the cross-border section of your annual compliance audit return. Templates: roadmap.",
+              "Authentication is off unless AEGIS_KEYS_FILE is configured.",
+              "The Wire Tap records post-scrub requests for internal review.",
+              "Session Map state is temporary Redis state; existing audit metadata is persisted separately.",
               "A live dashboard of counts, timings and post-scrub payloads. It never shows pre-scrub text.",
-            ].map((item) => <div key={item} className="flex gap-3 bg-zinc-900 p-5 text-sm leading-6 text-zinc-300"><Check className="mt-0.5 size-4 shrink-0 text-cyan-300" />{item}</div>)}
+            ].map((item) => <div key={item} className="flex gap-3 bg-card p-5 text-sm leading-6 text-foreground"><Check className="mt-0.5 size-4 shrink-0 text-primary" />{item}</div>)}
           </div>
         </div>
       </section>
 
       <section id="deploy" className="px-4 py-20 sm:px-6 lg:py-28">
-        <div className="mx-auto max-w-7xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-cyan-300">Deploy where your data lives</p>
+        <div className="mx-auto max-w-[1120px]">
+          <h2 className="section-title">Deploy inside your network</h2>
           <div className="mt-7 flex flex-col gap-4 md:flex-row">
-            {deploymentOptions.map(({ icon: Icon, label }) => <div key={label} className="flex flex-1 items-center gap-3 rounded-xl bg-zinc-900 p-5 text-zinc-200 ring-1 ring-white/10"><Icon className="size-5 text-cyan-300" />{label}</div>)}
+            {deploymentOptions.map(({ icon: Icon, label }) => <div key={label} className="flex flex-1 items-center gap-3 rounded-xl bg-card p-5 text-foreground ring-1 ring-border"><Icon className="size-5 text-primary" />{label}</div>)}
           </div>
-          <p className="mt-5 text-zinc-400">Runs in your VPC or on-prem. No telemetry leaves your network.</p>
+          <p className="mt-5 text-muted-foreground">Runs in your VPC or on-prem. Telemetry is self-hosted; the synthetic playground emits no Telemetry Events.</p>
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-zinc-900/30 px-4 py-20 sm:px-6 lg:py-28">
+      <section className=" bg-muted px-4 py-20 sm:px-6 lg:py-28">
         <div className="mx-auto max-w-5xl">
-          <p className="font-mono text-xs uppercase tracking-[0.16em] text-zinc-500">What Aegis does not do</p>
+          <h2 className="section-title">Known limitations</h2>
           <div className="mt-7 grid gap-4 md:grid-cols-2">
             {[
               "It does not make a transfer lawful on its own. Pseudonymised data can still be personal data.",
               "Names are detected by a model, so recall is not 100%. Structured IDs are rule-detected.",
               "It does not protect against the upstream provider's own retention. Check your provider terms.",
               "Streaming holds back incomplete Placeholders; it does not wait for the whole reply.",
-            ].map((item) => <div key={item} className="flex gap-3 text-sm leading-6 text-zinc-500"><X className="mt-0.5 size-4 shrink-0" />{item}</div>)}
+            ].map((item) => <div key={item} className="flex gap-3 text-sm leading-6 text-muted-foreground"><X className="mt-0.5 size-4 shrink-0" />{item}</div>)}
           </div>
         </div>
       </section>
 
       <section className="px-4 py-20 sm:px-6 lg:py-28">
-        <Card className="mx-auto max-w-5xl bg-zinc-900 ring-cyan-400/50">
+        <Card className="mx-auto max-w-5xl bg-card ring-ring">
           <CardContent className="flex flex-col items-start justify-between gap-6 py-8 sm:flex-row sm:items-end sm:py-10">
             <div>
-              <h2 className="max-w-2xl text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">Building with agents in a Nigerian bank, fintech or hospital?</h2>
-              <p className="mt-3 max-w-2xl leading-7 text-zinc-400">We are looking for a small number of design partners to test Aegis on real formats and policy needs. Free self-hosted pilot.</p>
+              <h2 className="max-w-2xl text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Build with Seclume.</h2>
+              <p className="mt-3 max-w-2xl leading-7 text-muted-foreground">We are looking for a small number of design partners to test Seclume on real formats and policy needs. Free self-hosted pilot.</p>
             </div>
-            <Button render={<Link href="/company/design-partners" />} className="bg-cyan-400 text-zinc-950 hover:bg-cyan-300">Explore the pilot <ArrowRight data-icon="inline-end" /></Button>
+            <Button render={<Link href="/company/design-partners" />} className="bg-primary text-primary-foreground hover:bg-primary">Explore the pilot <ArrowRight data-icon="inline-end" /></Button>
           </CardContent>
         </Card>
       </section>
