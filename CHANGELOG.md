@@ -4,6 +4,22 @@ All notable changes are documented here. Format: [Keep a Changelog](https://keep
 
 ## [Unreleased]
 
+Planned target: **0.4.0**. These changes are prepared on task branches and have not been released. See the [release checklist](docs/release-checklist.md) for verification and publication gates.
+
+### Added
+- Disabled-by-default synthetic playground API with atomic Redis rate limiting, temporary Session Map cleanup, scrubbed output and a simulated reply. Playground requests call no Upstream and emit no Telemetry Events.
+- Minimal playground page with approved synthetic examples, highlighted Placeholders, counts, measured scrub time, actual full/lite mode, and safe error states. Submissions require an explicitly configured public API URL.
+- CI checks for native-Redis backend tests, image startup refusal, Compose health, website client tests, and public claims lint.
+- Local quickstart, complete Python configuration reference, security model, and limitations guides.
+
+### Fixed
+- Wildcard addresses no longer count as loopback for startup checks. `BIND_HOST` defaults to `127.0.0.1`; the Docker entrypoint uses that setting. Non-loopback startup requires tenant keys or the explicit development bypass; tenant keys require a dedicated ticket secret.
+- Public wording now qualifies Session continuity, synthetic evaluation evidence, storage, and pilot availability. Removed unshipped roadmap stub pages and corrected the source-code licence footer.
+
+### Changed
+- Python package metadata is aligned to the planned release version; dependency requirements and locked third-party versions are unchanged.
+- The repository/product name remains Aegis. Existing `AEGIS_*` settings, `X-Aegis-*` headers, CLI name and Redis prefixes are unchanged; no rebrand or registry-image publication is claimed.
+
 ## [0.3.0] - 2026-10-28
 ### Added
 - Anthropic Messages API (`POST /v1/messages`), non-streaming and streaming, scrubbing `system`, text blocks, `tool_use.input` and `tool_result` content.
