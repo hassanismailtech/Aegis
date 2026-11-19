@@ -142,11 +142,21 @@ Authentication is off unless `AEGIS_KEYS_FILE` is configured. The supplied Compo
 
 ## Deployment and production build
 
-Build the Proxy runtime image:
+Build the Proxy runtime image with the same image-name setting used by Compose:
 
 ~~~bash
-docker build --target runtime --tag aegis:local backend
+export SECLUME_IMAGE="${SECLUME_IMAGE:-aegis:local}"
+docker build --target runtime --tag "$SECLUME_IMAGE" backend
 ~~~
+
+PowerShell equivalent:
+
+~~~powershell
+$env:SECLUME_IMAGE = "aegis:local"
+docker build --target runtime --tag $env:SECLUME_IMAGE backend
+~~~
+
+The planned release is still [Unreleased](CHANGELOG.md#unreleased). These commands build a local image; a published release image is not assumed. See the [release checklist](docs/release-checklist.md) before tagging, merging to the publishing branch, or publishing.
 
 The Proxy refuses startup when <code>BIND_HOST</code> is non-loopback and tenant-key authentication is disabled, unless <code>AEGIS_INSECURE_DEV=1</code> is explicitly set. Wildcard addresses <code>0.0.0.0</code> and <code>::</code> are not loopback. When tenant keys are configured, a dedicated <code>AEGIS_TICKET_SECRET</code> is required even with the development override. Direct Uvicorn commands must use the same <code>--host</code> as <code>BIND_HOST</code>; the guard checks configuration, not Uvicorn's independently supplied arguments.
 
@@ -154,7 +164,7 @@ For a standalone container, first provide container-reachable Redis and Upstream
 
 ~~~bash
 docker run --rm --publish 127.0.0.1:8000:8000 --env-file .env \
-  --env BIND_HOST=0.0.0.0 --env AEGIS_INSECURE_DEV=1 aegis:local
+  --env BIND_HOST=0.0.0.0 --env AEGIS_INSECURE_DEV=1 "$SECLUME_IMAGE"
 ~~~
 
 Or use the local Compose deployment:
