@@ -15,7 +15,7 @@
 
 ### Radix T2 local verification
 
-- `uv run --directory backend pytest -q tests/test_playground.py tests/test_startup_guard.py -k "not real_redis"`: `56 passed, 7 deselected in 6.58s`, using the existing offline environment and ignored local uv cache. The deselected integration cases are not skipped or weakened in CI.
+- `uv run --directory backend pytest -q tests/test_playground.py tests/test_startup_guard.py -k "not real_redis"`: `56 passed, 7 deselected in 7.89s`, using the existing offline environment and ignored local uv cache. The deselected integration cases are not skipped or weakened in CI.
 - Existing Python tooling parsed all changed Python modules and Compose YAML, and statically verified playground/NER/CORS wiring, disabled Uvicorn proxy rewriting, `SECLUME_IMAGE`, and host-loopback publishing. `git diff --check` passed.
 - Real Redis/Lua concurrency and rollover, the complete backend suite, image builds, Compose health, and the live curl example remain unverified. No CI, real-Redis, or live-service success is claimed from local mocked-controller tests.
 

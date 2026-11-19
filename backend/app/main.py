@@ -120,7 +120,7 @@ app.include_router(playground_router)
 
 
 @app.exception_handler(RequestValidationError)
-async def openai_validation_error(request: Request, _exc: RequestValidationError) -> JSONResponse:
+async def openai_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
     message = "Invalid request body."
     if request.url.path == PLAYGROUND_PATH:
         enabled = settings.playground_enabled
